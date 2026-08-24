@@ -1,17 +1,21 @@
 /**
  * WHY THIS EXISTS:
- *   One place that owns every code-split boundary in the route table, and the
- *   only place that knows how to start a chunk download *before* React asks
- *   for it. `React.lazy` alone gives you the split but no handle on the
- *   loader — once you pass the import function into `lazy()` you can never
- *   call it yourself, so there is nothing to trigger on hover. Wrapping each
- *   loader here keeps a reference to it and hands back both halves: the
- *   `Component` for the route table and a `preload()` for the nav.
+ *   One place that owns every code-split boundary in the app, and the only
+ *   place that knows how to do the two things `React.lazy` alone cannot: start
+ *   a chunk download *before* React asks for it, and throw away a chunk whose
+ *   download failed so a Retry can genuinely try again.
  *
- * CONCEPTS: W3-D3-01, W3-D3-05, W3-D5-05
+ *   `React.lazy` gives you the split and no handle on the loader — once you
+ *   pass the import function into `lazy()` you can never call it yourself, so
+ *   there is nothing to trigger on hover and nothing to reset after a failure.
+ *   Wrapping each loader here keeps a reference to it and hands back three
+ *   parts: the `Component` for the route table, a `preload()` for the nav, and
+ *   a `reset()` for the error boundary.
+ *
+ * CONCEPTS: W3-D3-01, W3-D3-02, W3-D3-05, W3-D4-02, W3-D5-05
  *
  * WITHOUT THIS:
- *   Three separate problems, one per thing this file does.
+ *   Four separate problems, one per thing this file does.
  *
  *   No `React.lazy` at all (which is what shipped through Phase 3): every
  *   route component is a static import in `App.tsx`, so the initial bundle
@@ -46,35 +50,80 @@
  *   found one already finished. `start()` below collapses the calls to one and
  *   logs *which* kind each one was, which is what makes the preload observable
  *   rather than merely plausible. Hover a nav item and the console prints one
- *   `↓ … (preload)`; click it and the console prints `⤳ … already resolved
+ *   `↓ … (preload)`; click it and the console prints `⤳ … already requested
  *   (render)` instead of a second download. That pair of lines is the proof.
+ *
+ *   No `reset()` — and this is the one that shipped broken through Phase 5,
+ *   caught by measurement rather than by reading. A chunk whose `import()`
+ *   rejects (stale deploy, dropped connection) surfaces as a render-phase throw
+ *   and lands in `App.tsx`'s per-route `<ErrorBoundary>`, which offers a Retry.
+ *   That Retry could not work, and an earlier version of `ErrorBoundary`'s
+ *   header wrongly claimed it could. `React.lazy` stores its outcome on a
+ *   payload object hanging off the lazy component itself — module scope, not
+ *   fiber scope — and once that payload is `Rejected`, every subsequent read
+ *   re-throws the same error. The boundary's `key` bump discards the *fiber*
+ *   and reads the same payload straight back. Measured, not reasoned about: a
+ *   probe rendering a rejecting `lazy()` inside this boundary recorded one
+ *   import attempt before Retry and one after — the loader was never called a
+ *   second time, and the fallback never cleared.
+ *
+ *   Two things have to be thrown away to recover, which is why `reset()` does
+ *   both. Clearing `pending` alone is not enough: the rejected payload still
+ *   sits on the old lazy component. Re-creating the lazy component alone is not
+ *   enough either: `start()` would hand it the same memoised rejected promise.
+ *   And a third piece is what makes the first two reachable — `Component` is a
+ *   plain wrapper that reads `current` *at render time* rather than being the
+ *   lazy component itself. Without that indirection the route table's element
+ *   captures whichever lazy object existed when `App` rendered, and a boundary
+ *   remount re-renders that captured element; `reset()` would swap a variable
+ *   nothing reads. The wrapper is one extra function component and it is the
+ *   difference between a working Retry and a decorative one.
  *
  *   No shared registry: the nav in `AppLayout` would need its own import
  *   functions to preload, duplicating the paths that `App.tsx` already lists.
  *   The two copies then drift — a route gets renamed, the route table follows,
  *   and the nav quietly preloads a module nobody renders any more. Both read
- *   from `LAZY_ROUTES` here instead.
+ *   from `LAZY_ROUTES` here instead. `ClaimIntakePage`'s component-level split
+ *   (W3-D3-02) calls `splitChunk` directly for the same reason: it is the same
+ *   rejected-payload problem, so it gets the same `reset()` rather than a
+ *   second, subtly different copy of this logic.
  */
 
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent, type ReactElement } from 'react';
 
-type ModuleLoader = () => Promise<{ default: ComponentType }>;
+type ModuleLoader<P> = () => Promise<{ default: ComponentType<P> }>;
 
-export interface LazyRoute {
-  /** Pass to a `<Route element>`; must sit under a `<Suspense>`. */
-  Component: LazyExoticComponent<ComponentType>;
+export interface SplitChunk<P> {
+  /** Pass to a `<Route element>` or render directly; must sit under a `<Suspense>`. */
+  Component: ComponentType<P>;
   /** Idempotent. Safe to call on every hover and focus event. */
   preload: () => void;
+  /**
+   * Discards a failed import so the next render genuinely re-requests it. Wire
+   * this to the enclosing `<ErrorBoundary onRetry>` — see this file's header
+   * for why a boundary's `key` bump cannot do it alone.
+   */
+  reset: () => void;
 }
 
 /**
- * Wraps one dynamic import so the download can be started from two places —
- * React's render path and an intent handler — while only ever happening once.
+ * A route chunk carries no props; the route table renders `<Component />` bare.
+ * `object` rather than `Record<string, never>` because that is what TypeScript
+ * infers for a `default` export declared as `(): ReactElement` — spelling the
+ * empty-props case more strictly here makes every route export fail to assign.
  */
-function lazyRoute(name: string, load: ModuleLoader): LazyRoute {
-  let pending: Promise<{ default: ComponentType }> | null = null;
+export type LazyRoute = SplitChunk<object>;
 
-  function start(reason: 'preload' | 'render'): Promise<{ default: ComponentType }> {
+/**
+ * Wraps one dynamic import so the download can be started from two places —
+ * React's render path and an intent handler — while only ever happening once,
+ * and so a failed download can be thrown away rather than remembered forever.
+ */
+export function splitChunk<P extends object>(name: string, load: ModuleLoader<P>): SplitChunk<P> {
+  let pending: Promise<{ default: ComponentType<P> }> | null = null;
+  let current: LazyExoticComponent<ComponentType<P>> = lazy(() => start('render'));
+
+  function start(reason: 'preload' | 'render'): Promise<{ default: ComponentType<P> }> {
     if (pending) {
       console.log(`[chunk] ⤳ ${name} already requested (${reason})`);
       return pending;
@@ -92,11 +141,31 @@ function lazyRoute(name: string, load: ModuleLoader): LazyRoute {
     return pending;
   }
 
+  function reset(): void {
+    console.log(`[chunk] ⟲ ${name} reset — discarding the failed import`);
+    // Both, in this order, and neither is sufficient alone. See the header.
+    pending = null;
+    current = lazy(() => start('render'));
+  }
+
+  /*
+   * Deliberately NOT `Component: current`. This wrapper re-reads `current` on
+   * every render, which is what lets `reset()` swap the lazy component behind
+   * an element the route table created long ago. Assigning the lazy component
+   * directly freezes it into that element forever.
+   */
+  function Component(props: P): ReactElement {
+    const Current = current;
+    return <Current {...props} />;
+  }
+  Component.displayName = `Split(${name})`;
+
   return {
-    Component: lazy(() => start('render')),
+    Component,
     preload: () => {
       void start('preload');
     },
+    reset,
   };
 }
 
@@ -104,25 +173,25 @@ function lazyRoute(name: string, load: ModuleLoader): LazyRoute {
 /* Top-level routes                                                           */
 /* -------------------------------------------------------------------------- */
 
-export const DashboardRoute = lazyRoute('DashboardPage', () => import('../../routes/DashboardPage'));
-export const PoliciesRoute = lazyRoute('PoliciesPage', () => import('../../routes/PoliciesPage'));
-export const PolicyDetailRoute = lazyRoute(
+export const DashboardRoute = splitChunk('DashboardPage', () => import('../../routes/DashboardPage'));
+export const PoliciesRoute = splitChunk('PoliciesPage', () => import('../../routes/PoliciesPage'));
+export const PolicyDetailRoute = splitChunk(
   'PolicyDetailPage',
   () => import('../../routes/PolicyDetailPage'),
 );
-export const QuoteWizardRoute = lazyRoute(
+export const QuoteWizardRoute = splitChunk(
   'QuoteWizardPage',
   () => import('../../routes/QuoteWizardPage'),
 );
-export const ClaimIntakeRoute = lazyRoute(
+export const ClaimIntakeRoute = splitChunk(
   'ClaimIntakePage',
   () => import('../../routes/ClaimIntakePage'),
 );
-export const UnderwritingRoute = lazyRoute(
+export const UnderwritingRoute = splitChunk(
   'UnderwritingPage',
   () => import('../../routes/UnderwritingPage'),
 );
-export const NotFoundRoute = lazyRoute('NotFoundPage', () => import('../../routes/NotFoundPage'));
+export const NotFoundRoute = splitChunk('NotFoundPage', () => import('../../routes/NotFoundPage'));
 
 /* -------------------------------------------------------------------------- */
 /* Nested tab routes under /policies/:id                                      */
@@ -135,15 +204,15 @@ export const NotFoundRoute = lazyRoute('NotFoundPage', () => import('../../route
  * machinery. Splitting the parent alone would bundle all three into the parent
  * chunk and the tab nav would be free — but so would be paying for it.
  */
-export const PolicyCoverageRoute = lazyRoute(
+export const PolicyCoverageRoute = splitChunk(
   'PolicyCoverageTab',
   () => import('../../routes/policyDetail/PolicyCoverageTab'),
 );
-export const PolicyClaimsRoute = lazyRoute(
+export const PolicyClaimsRoute = splitChunk(
   'PolicyClaimsTab',
   () => import('../../routes/policyDetail/PolicyClaimsTab'),
 );
-export const PolicyDocumentsRoute = lazyRoute(
+export const PolicyDocumentsRoute = splitChunk(
   'PolicyDocumentsTab',
   () => import('../../routes/policyDetail/PolicyDocumentsTab'),
 );

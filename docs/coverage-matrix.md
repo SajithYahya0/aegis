@@ -13,6 +13,24 @@ Legend for **Tier**:
 - **C** — completeness tier. Not in the document, but the mentor asked for *all
   hooks*. Include all of these.
 
+Legend for **Done**:
+- `[x]` — **solid.** The named code runs, is reachable from a route, and its
+  mechanism can be observed doing something.
+- `[~]` — **qualified.** The named code exists, is correct, and is reachable —
+  but the thing it demonstrates is not observable in this app, or only part of
+  the row's claim holds. The reason is stated inline on the row. See
+  [Known weak claims](#known-weak-claims) for the honest count.
+- `[ ]` — not built.
+
+`[~]` was added after a full-repo audit found rows that satisfied every
+mechanical check the old criteria stated — real file, real export, clickable
+route — while demonstrating nothing. That gap in the criteria is itself the
+finding: **a concept is only demonstrated if its mechanism can be observed
+doing something.** Rows are not downgraded for being imperfect, only for being
+inert or overstated, and none of them are fixed by inventing a consumer that
+the app does not otherwise need — that would trade an honest gap for a
+contrived usage, which `CLAUDE.md` ranks as strictly worse.
+
 ---
 
 ## Week 1 — Fundamentals
@@ -40,7 +58,7 @@ Legend for **Tier**:
 
 | ID | Concept | Tier | Feature that forces it | File / Export | Done |
 |---|---|---|---|---|---|
-| W2-D1-01 | `useEffect` — mount-only fetch (`[]` deps) | R | Claims history load on `/policies/:id/claims` | `src/shared/hooks/useFetch.ts` — `useFetch`, used by `src/routes/policyDetail/PolicyClaimsTab.tsx` (see the hook's header for why one `[policyId]`-keyed effect honestly claims this row and W2-D1-02 both) | [x] |
+| W2-D1-01 | `useEffect` — mount-only fetch (`[]` deps) | R | Claims history load on `/policies/:id/claims` | `src/shared/hooks/useFetch.ts` — `useFetch`, used by `src/routes/policyDetail/PolicyClaimsTab.tsx`. **Qualified:** no `[]`-deps *fetch* exists anywhere in the app. A `[policyId]` effect runs once on first render, which is the mount case, but that is an argument for why the row need not be built separately — not a demonstration of it. Writing a literal `[]` fetch here would ship the bug the hook exists to prevent (POL-1's claims shown forever, because Router reuses the tab instance across `:id` changes), so the gap is left honest. `[]`-deps effects that are *not* fetches do exist and are solid: `useRenewalCountdown`'s interval (W2-D1-04) and `Modal`'s keydown listener | [~] |
 | W2-D1-02 | `useEffect` — dependency-driven refetch | R | Refetch claims when `:id` changes | `src/shared/hooks/useFetch.ts` — `useFetch` (effect deps = caller's `deps`, e.g. `[policyId]`) | [x] |
 | W2-D1-03 | `useEffect` — cleanup with `AbortController` | R | Cancel in-flight claims fetch on route change | `src/shared/hooks/useFetch.ts` — `useFetch` (`controller.abort()` in the cleanup) | [x] |
 | W2-D1-04 | `useEffect` — cleanup of subscription/interval | R | Renewal countdown timer teardown | `src/shared/hooks/useRenewalCountdown.ts` — `useRenewalCountdown`, used by `src/routes/policyDetail/RenewalCountdown.tsx` | [x] |
@@ -48,11 +66,11 @@ Legend for **Tier**:
 | W2-D1-06 | Pitfall: stale closure | R | Registered lab defect — interval reading stale count | `src/shared/labs/StaleClosureDemo.tsx` — `StaleClosureDemo` (same Phase 1 gap as W2-D1-05 — see note above) | [x] |
 | W2-D1-07 | Effect vs derived state (when NOT to use effect) | R | Premium total derived in render, documented in header | `src/routes/QuoteWizardPage.tsx` — `estimateIndicativePremium`, called directly in the render body (no `useState`/`useEffect` pair) | [x] |
 | W2-D2-01 | `useRef` — DOM node access & focus | R | Autofocus first field when claim modal opens | `src/shared/components/Modal.tsx` — `Modal` (`containerRef` + `focusFirst()`) | [x] |
-| W2-D2-02 | `useRef` — mutable value, no re-render | R | Idle-session timer id + last-activity timestamp | `src/shared/hooks/useRenewalCountdown.ts` — `useRenewalCountdown` (`timerRef`, `lastActivityRef`) | [x] |
+| W2-D2-02 | `useRef` — mutable value, no re-render | R | Last-activity timestamp written at pointer frequency | `src/shared/hooks/useRenewalCountdown.ts` — `useRenewalCountdown` (`lastActivityRef`). The audit found `timerRef` alongside it was a ref where a closure `const` suffices — written once per effect run, read once per cleanup, by a closure that can already see the effect's own scope. **Removed**, not documented as inert: unlike the `[~]` rows below, this was redundant code rather than a correct mechanism with no observable effect. `lastActivityRef` earns the row on its own — as state it would re-render the whole detail page dozens of times a second while the mouse rests on it | [x] |
 | W2-D2-03 | `useRef` — previous-value pattern | R | Premium delta indicator ("was ₹X") | `src/shared/hooks/usePrevious.ts` — `usePrevious`, used by `src/routes/quoteWizard/StickyPremiumSummary.tsx` | [x] |
 | W2-D2-04 | `createContext` + Provider | R | `AuthContext` (current user + role) | `src/shared/store/AuthContext.tsx` — `AuthProvider` | [x] |
 | W2-D2-05 | `useContext` consumption | R | Role-gated underwriter actions | `src/shared/routes/RequireRole.tsx` — `RequireRole` (`useAuth()`) | [x] |
-| W2-D2-06 | Context split to limit re-renders (state vs dispatch) | R | `QuoteStateContext` / `QuoteDispatchContext` | `src/shared/store/QuoteContext.tsx` — `QuoteStateContext`, `QuoteDispatchContext` | [x] |
+| W2-D2-06 | Context split to limit re-renders (state vs dispatch) | R | `QuoteStateContext` / `QuoteDispatchContext` | `src/shared/store/QuoteContext.tsx` — `QuoteStateContext`, `QuoteDispatchContext`. **Qualified — inert:** the split is correct and saves zero renders here. Every consumer (`WizardNav`, `ApplicantStep`, `RiskStep`, `CoverageStep`, `ReviewStep`) calls *both* hooks, so there is no dispatch-only subscriber to spare. It would still save zero if one existed: `QuoteWizardPage` reads state and renders the steps inline, so a state change re-renders them as children regardless of which contexts they read — cashing the split in additionally needs `React.memo` on the steps. Deliberately **not** fixed by inventing a dispatch-only component; see [Known weak claims](#known-weak-claims) | [~] |
 | W2-D2-07 | Custom hook wrapping context + guard throw | R | `useAuth()` throws outside provider | `src/shared/store/AuthContext.tsx` — `useAuth` | [x] |
 | W2-D3-01 | `useReducer` — actions & dispatch | R | Quote wizard state machine | `src/shared/store/QuoteContext.tsx` — `quoteReducer` | [x] |
 | W2-D3-02 | Reducer purity / immutable returns | R | Registered lab defect: mutating draft state | `src/shared/store/QuoteContext.tsx` — `quoteReducer` (`ADD_INSURED`, gated by `mutating-reducer`) | [x] |
@@ -76,9 +94,9 @@ Legend for **Tier**:
 | ID | Concept | Tier | Feature that forces it | File / Export | Done |
 |---|---|---|---|---|---|
 | W3-D1-01 | `React.memo` | R | `PolicyRow` — measured with render logs | `src/routes/policies/PolicyRow.tsx` — `PolicyRow` | [x] |
-| W3-D1-02 | `React.memo` with custom comparator | R | `PremiumBadge` comparing formatted value | `src/routes/policies/PremiumBadge.tsx` — `PremiumBadge` | [x] |
+| W3-D1-02 | `React.memo` with custom comparator | R | `PremiumBadge` comparing formatted value | `src/routes/policies/PremiumBadge.tsx` — `PremiumBadge`. **Qualified — inert, and arguably wrong even if it ran:** the comparator can never execute. `PremiumBadge` is rendered only by `PolicyRow`, which is itself memoised on a referentially stable `premium`, and a parent that bails out never renders its child. `docs/render-counts.md` measured this and says so. Worse, if it did run it would lose: the comparator calls `formatCurrency` twice to skip a render that calls it once — more expensive than not memoising, which is the exact argument W3-D1-06 makes one file away. The scenario it defends (two `rateBook` runs pricing a policy a paisa apart) cannot occur while `rateBook` runs once per session | [~] |
 | W3-D1-03 | `useMemo` — genuinely expensive computation | R | Premium rating engine over full policy book | `src/routes/PoliciesPage.tsx` — `PoliciesPage` (`premiums = useMemo(() => rateBook(...), [filtered])`) | [x] |
-| W3-D1-04 | `useMemo` — referential stability of context value | R | Auth + quote provider values | `src/shared/store/AuthContext.tsx` — `AuthProvider` | [x] |
+| W3-D1-04 | `useMemo` — referential stability of context value | R | Auth + quote provider values | `src/shared/store/AuthContext.tsx` — `AuthProvider`. **Qualified — inert:** the memo's bail-out branch is unreachable in this tree. `role` is the provider's only state and nothing above `AuthProvider` re-renders, so `AuthProvider` re-renders exactly when `role` changes — which is exactly when the value must change anyway. The file's header states the general hazard ("every render hands consumers a brand-new object") as though it were a fact about this app; it is not. Kept because it is correct-by-construction the moment a second piece of state or a re-rendering ancestor appears, and because the `useCallback` on `switchRole` beside it *is* load-bearing | [~] |
 | W3-D1-05 | `useCallback` — stable handler into memo child | R | `onSelect` passed to `PolicyRow` | `src/routes/PoliciesPage.tsx` — `handleSelect` | [x] |
 | W3-D1-06 | When NOT to optimise (documented counter-example) | R | `docs/failure-modes.md` + header note on a deliberately un-memoised leaf | `src/routes/policies/FilterStatus.tsx` — `FilterStatus` (header note; the `docs/failure-modes.md` companion table is Phase 5's, per `docs/phase-prompts.md`) | [x] |
 | W3-D2-01 | Rules of hooks (violation demonstrated) | R | Registered lab defect: conditional hook call | `src/shared/labs/ConditionalHookDemo.tsx` — `ConditionalHookDemo` | [x] |
@@ -88,13 +106,13 @@ Legend for **Tier**:
 | W3-D2-05 | Custom hook — composition (hook using hooks) | R | `usePolicyFilters` = search params + debounce + memo | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` | [x] |
 | W3-D2-06 | Testing a custom hook | R | `useDebounce.test.ts`, `useLocalStorage.test.ts` (fake timers) | `src/shared/hooks/useDebounce.test.ts`, `src/shared/hooks/useLocalStorage.test.ts` | [x] |
 | W3-D2-07 | Testing a component | R | `PolicyList.test.tsx` — filter narrows rows | `src/routes/policies/PolicyList.test.tsx` | [x] |
-| W3-D3-01 | `React.lazy` — route-level splitting | R | All top-level routes | `src/shared/routes/lazyRoutes.ts` — `lazyRoute` + the seven top-level route exports, consumed by `src/App.tsx`; separate chunks confirmed in `vite build` output | [x] |
-| W3-D3-02 | `React.lazy` — component-level splitting | R | Claim intake wizard (heavy, modal-only) | `src/routes/ClaimIntakePage.tsx` — module-scope `lazy(() => import('./claimIntake/ClaimIntakeWizard'))`, rendered only inside an open `<Modal>`. Verified twice: its own chunk in `vite build`, and *not* loaded while the modal is closed by `src/App.test.tsx` | [x] |
+| W3-D3-01 | `React.lazy` — route-level splitting | R | All top-level routes | `src/shared/routes/lazyRoutes.tsx` — `splitChunk` + the seven top-level route exports, consumed by `src/App.tsx`'s `BoundedRoute`; separate chunks confirmed in `vite build` output, and every route walked at runtime by `src/App.test.tsx` | [x] |
+| W3-D3-02 | `React.lazy` — component-level splitting | R | Claim intake wizard (heavy, modal-only) | `src/routes/ClaimIntakePage.tsx` — module-scope `splitChunk('ClaimIntakeWizard', () => import('./claimIntake/ClaimIntakeWizard'))`, rendered only inside an open `<Modal>`. The `import()` stays in this file (it is what draws the chunk boundary); only the memoise/log/reset mechanism is shared with the route chunks — which is how its Retry got fixed alongside theirs. Verified twice: its own chunk in `vite build`, and *not* loaded while the modal is closed by `src/App.test.tsx` | [x] |
 | W3-D3-03 | `<Suspense>` fallback | R | Per-route boundary | `src/App.tsx` — `LazyRoute` (one `<Suspense>` per route **and** per `/policies/:id` tab); also `src/routes/PolicyDetailPage.tsx`, `src/routes/policyDetail/RiskExposureWidget.tsx`, `src/routes/ClaimIntakePage.tsx` | [x] |
 | W3-D3-04 | Skeleton UI while chunk loads | R | `Skeleton.tsx` variants | `src/shared/components/Skeleton.tsx` — `Skeleton` (`table` / `card` / `panel`) | [x] |
-| W3-D3-05 | Preloading on intent (hover/focus) | R | Sidebar nav preloads route chunk | `src/shared/routes/lazyRoutes.ts` — `preloadPath` / `LazyRoute.preload`, wired to `onMouseEnter` **and** `onFocus` in `src/shared/layout/AppLayout.tsx`; logs `[chunk] ↓ … (preload)` then `⤳ … already requested (render)` | [x] |
+| W3-D3-05 | Preloading on intent (hover/focus) | R | Sidebar nav preloads route chunk | `src/shared/routes/lazyRoutes.tsx` — `preloadPath` / `SplitChunk.preload`, wired to `onMouseEnter` **and** `onFocus` in `src/shared/layout/AppLayout.tsx`; logs `[chunk] ↓ … (preload)` then `⤳ … already requested (render)`. The memoisation those two lines depend on is asserted in `src/shared/routes/lazyRoutes.test.tsx` — two preloads plus a render must call the loader once | [x] |
 | W3-D4-01 | Error Boundary class component | R | `ErrorBoundary.tsx` — `getDerivedStateFromError` + `componentDidCatch` | `src/shared/components/ErrorBoundary.tsx` — `ErrorBoundary`; tested in `src/shared/components/ErrorBoundary.test.tsx` | [x] |
-| W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | `src/shared/components/ErrorBoundary.tsx` — `handleRetry` + `<Fragment key={attempt}>`, paired with the `onRetry` cache eviction (`clearPolicyResource`). Both halves — the remount *and* the eviction ordering — are tested in `ErrorBoundary.test.tsx` | [x] |
+| W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | `src/shared/components/ErrorBoundary.tsx` — `handleRetry` + `<Fragment key={attempt}>`, paired with `onRetry` at every call site. **Was measurably false, now repaired** — this row was flagged for downgrade and instead fixed, because the fix was available. The old claim was that the `key` bump clears `React.lazy`'s memoised rejection; it does not (a probe recorded one import attempt before Retry and one after), so `App.tsx`'s route-level Retry could never recover a failed chunk and `ClaimIntakePage`'s had the same hole. Fixed by `splitChunk().reset()` in `src/shared/routes/lazyRoutes.tsx`, wired through `App.tsx`'s `BoundedRoute` and `ClaimIntakePage`. Now three mechanisms, all tested: the remount and the eviction ordering in `ErrorBoundary.test.tsx`, the lazy reset in `src/shared/routes/lazyRoutes.test.tsx` — including a negative test that fails if remounting ever starts recovering on its own. `ErrorBoundary.tsx`'s header carries the correction | [x] |
 | W3-D4-03 | Scoped boundary — widget fails, page survives | R | Claims widget throws; policy detail still renders | `src/routes/policyDetail/RiskExposureWidget.tsx` — `RiskExposurePanel`, wired to `api.ts`'s always-rejecting `fetchRiskFeed` behind the `risk-feed-outage` lab toggle. **Deliberate deviation:** the failing widget is the risk feed, not the Claims tab. Making Claims the one that throws would mean converting it from the `useFetch` + `AbortController` path to the `use()` + Suspense path, and CLAUDE.md requires both paths to exist *and* to be contrastable — they now sit on the same page, one tab apart. `fetchRiskFeed` was built in Phase 0 for exactly this row (see its header) | [x] |
 | W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | `src/routes/quoteWizard/StickyPremiumSummary.tsx` — `StickyPremiumSummary`, toggled by the `layout-effect-flicker` lab defect (`src/shared/labs/registry.ts`) | [x] |
 | W3-D4-05 | `forwardRef` | R | `Modal`, `TextField` | `src/shared/components/Modal.tsx` — `Modal` (`TextField` deliberately does not need `forwardRef` — see its own header; nothing in the app grabs its DOM node directly, `Modal`'s generic `querySelectorAll` focus search covers it) | [x] |
@@ -117,7 +135,7 @@ Legend for **Tier**:
 | C-04 | `useSyncExternalStore` | C | Online/offline sync banner | `src/shared/hooks/useOnlineStatus.ts` — `useOnlineStatus` (`subscribe`/`getSnapshot`/`getServerSnapshot`), consumed by `src/shared/components/ConnectivityBanner.tsx` — `ConnectivityBanner`, mounted once in `src/shared/layout/AppLayout.tsx` so it is reachable from every route. **On `labs/registry.ts`:** that module is exactly as legitimate a candidate for this row as `window`'s `online`/`offline` events — plain module state with a `subscribe`/`notify` pair, external to React, read via `useLabFlag`'s own `useState` + `useEffect` bridge instead of `useSyncExternalStore`. It is deliberately left alone rather than rewritten to claim this row, for two reasons. First, the named feature this row asks for is the connectivity banner specifically (see "Feature that forces it" above), and `useOnlineStatus` already builds that honestly — rewriting `useLabFlag` in addition would be a second, redundant claim on the same row, not a stronger one. Second, `useLabFlag` is working infrastructure that five other lab defects (`W2-D1-05`, `W2-D1-06`, `W2-D3-02`, `W3-D2-01`, `W3-D4-04`, `W3-D4-03`) and the C-05 toggle all depend on; changing it now would be a rewrite made for the matrix's benefit rather than the app's, which CLAUDE.md rules out ("a contrived usage is worse than an honest gap"). `useLabFlag`'s own header already documents why it exists as a `useState`+`useEffect` bridge rather than `useSyncExternalStore`. | [x] |
 | C-05 | `useOptimistic` | C | Claim status flips to "Submitting" before server confirms | `src/routes/policyDetail/PolicyClaimsTab.tsx` — `PolicyClaimsTab` (`useOptimistic` wraps `claims`; `addOptimisticClaim` called from `handleLogClaim` before `submitClaim` resolves). Forced-failure lab toggle: `claim-submit-failure` in `src/shared/labs/registry.ts`, read via `isLabEnabled` at submit time. **Deliberately not in `ClaimIntakeWizard`**, even though an earlier header in that file grouped all three React 19 form hooks together — see that file's current header for why: `useOptimistic` needs a list already on screen to show a pending entry in, and the wizard is a modal with no list, while `PolicyClaimsTab` has the real claims table sitting right there. | [x] |
 | C-06 | `useActionState` | C | Claim submit action with returned error state | `src/routes/claimIntake/ClaimIntakeWizard.tsx` — `ClaimIntakeWizard` (review step's `<form action={submitAction}>`; validation-ahead-of-submit, so the returned state carries the async write's own error) **and** `src/routes/policyDetail/PolicyClaimsTab.tsx` — `ClaimForm` (single-step form; the action reads `amount`/`description` straight from `FormData` and returns real per-field errors, rendered through `TextField`'s existing `error` prop). Two call sites on purpose: the wizard shows the "validate ahead, one error slot" shape, the quick-claim form shows the "validate from FormData, per-field errors" shape — the same hook used two genuinely different ways rather than one usage copy-pasted twice. | [x] |
-| C-07 | `useFormStatus` (react-dom) | C | Submit button disabled/pending inside the form | `src/shared/components/SubmitButton.tsx` — `SubmitButton`, used by both `ClaimIntakeWizard` (review step) and `PolicyClaimsTab`'s `ClaimForm`; `WizardNavButton` (in `ClaimIntakeWizard.tsx`) and `FormCancelButton` (in `PolicyClaimsTab.tsx`) read the same `useFormStatus()` to disable Back/Cancel while their shared `<form>` is mid-action, with no `pending` prop passed down from either page. | [x] |
+| C-07 | `useFormStatus` (react-dom) | C | Submit button disabled/pending inside the form | `src/shared/components/SubmitButton.tsx` — `SubmitButton`. **Qualified — one of the two call sites is unobservable.** `ClaimIntakeWizard` (review step) is the real one: `ClaimIntakePage.handleSubmit` awaits `submitClaim` *before* closing the modal, so the wizard stays mounted for the full 400–900ms round trip and `SubmitButton`/`WizardNavButton` genuinely render their pending state. `PolicyClaimsTab`'s `ClaimForm` does not: `handleLogClaim` calls `modalRef.current?.close()` on its first line, before the `await`, so the whole `<form>` — `SubmitButton` and `FormCancelButton` with it — unmounts before `pending` can ever render. Not "fixed" by reordering: closing immediately is the correct UX there, because the optimistic row in the table below (C-05) *is* the feedback and a lingering modal would cover it. The two features are in genuine tension and the hook loses; that is recorded rather than papered over | [~] |
 | C-08 | `useDebugValue` | C | Label inside `useLocalStorage` for DevTools | `src/shared/hooks/useLocalStorage.ts` — `useLocalStorage` (built in Phase 2, whose own header already named C-08 — another pass where the matrix row itself was never updated to match; caught in this phase's audit alongside W2-D1-05/06) | [x] |
 | C-09 | `createPortal` | C | Modal + toast rendered outside the DOM subtree | `src/shared/components/Modal.tsx` — `Modal`, `src/shared/components/Toast.tsx` — `Toast` (both portal to `#modal-root`, declared in `index.html`) | [x] |
 | C-10 | `flushSync` | C | Scroll-to-new-row immediately after append | `src/routes/policyDetail/PolicyClaimsTab.tsx` — `handleLogClaim` (`flushSync` around the append, then `lastRowRef.current.scrollIntoView(...)`) | [x] |
@@ -148,9 +166,58 @@ directly (see the Week 2 section above).
 
 ---
 
+## Known weak claims
+
+**Total rows: 83. Solid `[x]`: 78. Qualified `[~]`: 5. Not built: 0.**
+
+The previous line here read "Complete: 83. Remaining: 0", and that number was
+defensible only against criteria that turned out to be too weak. A post-Phase-5
+audit re-checked every row against a harder question than "does the file exist
+and can I click to it" — *can the mechanism be observed doing anything?* — and
+five rows failed it. They are listed below with what would make each solid.
+
+None of the five is a missing feature, and none is fixed here by adding one.
+Four are correct code whose effect is unobservable in this app; the fifth is a
+concept the app has no honest home for. `CLAUDE.md` ranks a contrived usage as
+worse than an honest gap, so **inert is recorded as inert**.
+
+| ID | Concept | Why it is qualified | What would make it `[x]` |
+|---|---|---|---|
+| W3-D1-02 | `memo` custom comparator | `PremiumBadge`'s comparator can never run — its memoised parent bails out first, so the child is never rendered. Measured in `docs/render-counts.md`. And it would lose if it ran: two `formatCurrency` calls to skip a render costing one. | A second `rateBook` pass that re-prices the same policy. The app runs exactly one per session, so this needs a feature that does not exist. Alternatively: delete the comparator and let shallow compare on `amount` do the job — the more honest edit. |
+| W2-D2-06 | Split context | No dispatch-only consumer exists; all five wizard steps read both. Even one would re-render anyway, because `QuoteWizardPage` reads state and renders the steps as children. | `React.memo` on the step components **and** a step that genuinely needs dispatch without state. Neither is wanted by the wizard as designed. |
+| W3-D1-04 | `useMemo` on a context value | `role` is `AuthProvider`'s only state and nothing above it re-renders, so the provider re-renders exactly when the value must change. The bail-out branch is unreachable. | A second piece of state in `AuthProvider`, or an ancestor that re-renders. Both would be invented for the matrix. |
+| C-07 | `useFormStatus` | Real in `ClaimIntakeWizard`. Unobservable in `PolicyClaimsTab`'s `ClaimForm`: `handleLogClaim` closes the modal before its `await`, unmounting the form before `pending` can render. | Keeping the modal open until the action settles — which would cover the optimistic row (C-05) that is the actual feedback. The two features are in real tension; the hook loses. |
+| W2-D1-01 | Mount-only fetch (`[]` deps) | No `[]`-deps *fetch* exists. `useFetch`'s `[policyId]` effect runs once on mount, but that is an argument for not building the row, not a demonstration of it. | A feature that genuinely fetches once and never refetches. Adding one to `PolicyClaimsTab` would ship the stale-data bug `useFetch` exists to prevent. |
+
+### Repaired rather than downgraded
+
+**W3-D4-02** was the sixth row this audit flagged, and it was the only one where
+the claim was not merely inert but **measurably false**: `ErrorBoundary`'s header
+asserted that the `key` bump clears `React.lazy`'s memoised rejection. A probe
+rendering a rejecting `lazy()` inside the boundary recorded one import attempt
+before Retry and one after — the loader was never re-entered, the fallback never
+cleared. `App.tsx` compounded it by passing no `onRetry` at all, so every
+route-level Retry button was decorative, as was the one in `ClaimIntakePage`'s
+dialog.
+
+It stays `[x]` because it was fixed rather than annotated: `splitChunk().reset()`
+discards both the memoised promise and the rejected lazy component, wired at both
+call sites, with `src/shared/routes/lazyRoutes.test.tsx` pinning it — including a
+negative test that fails if remounting ever starts recovering on its own, and a
+sabotage check confirming the positive test fails when `reset()` stops
+re-creating the component. `ErrorBoundary.tsx`'s header now carries the
+correction rather than the claim.
+
+Two non-matrix bugs surfaced in the same pass and were fixed: `Toast` kept
+`onDismiss` in its effect deps while both callers passed inline arrows, so the
+auto-dismiss timer restarted on every parent render; and `useRenewalCountdown`
+held its interval id in a ref where the effect's own closure already sufficed.
+
+---
+
 ## Audit
 
-Total rows: **83**. Complete: **83**. Remaining: **0**.
+Total rows: **83**. Solid: **78**. Qualified: **5**. Remaining: **0**.
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -198,7 +265,7 @@ Total rows: **83**. Complete: **83**. Remaining: **0**.
 >     and the check found one thing that did *not* move: `src/shared/data`
 >     stays in the entry chunk, because `AppLayout` imports `AS_OF` from it
 >     and a module reachable from a statically-imported component cannot be
->     lazily chunked. That is recorded in `lazyRoutes.ts`'s header rather
+>     lazily chunked. That is recorded in `lazyRoutes.tsx`'s header rather
 >     than quietly omitted, because "the split did not help, and the reason
 >     is one stray static import in shared chrome" is the most common way
 >     this concept fails in practice.
@@ -258,9 +325,16 @@ Total rows: **83**. Complete: **83**. Remaining: **0**.
 
 ## Still unchecked after Phase 5
 
-**None.** All 83 rows are checked. The full-repo audit below confirms each
-one names a real file, a real export, and a route the agent can actually
-click to — not just a file that compiles.
+**None unbuilt** — but see [Known weak claims](#known-weak-claims), added after
+this section was written. Five of the 83 are now `[~]` rather than `[x]`.
+
+The audit below was run against the criteria in force at the time: does the
+named file exist, does it export what the row claims, is it reachable from a
+route. Every row passed, and that was true. It was also not enough — five rows
+satisfy all three and demonstrate nothing observable, and one (W3-D4-02) passed
+while asserting something measurably false. Left here unedited, because the
+gap between what this section checked and what the later pass checked is the
+most useful thing in it.
 
 ### Full-repo reachability audit (Phase 5)
 

@@ -23,12 +23,50 @@
  *   chunk rather than in the layout, so it can only pass if the chunk actually
  *   resolved through its Suspense boundary. Asserting on the sidebar would pass
  *   even with every route module broken.
+ *
+ *   Every wait here goes through `findInChunk`, never a bare `findBy*`, and
+ *   that is the fix for a test that used to fail perhaps one run in three on
+ *   `/policies` with "Unable to find role=heading and name Policies" — a page
+ *   whose `<h1>` is the very first thing its component returns. The message was
+ *   misleading: nothing was missing, the wait had simply expired. Timed, the
+ *   `/policies` mount is ~1.1–2.0s in this environment, in two parts, and
+ *   neither part is removable:
+ *
+ *     • ~500–700ms resolving the lazy chunk. Under Vitest there is no
+ *       pre-built bundle — `import('./routes/PoliciesPage')` transforms that
+ *       module and everything below it (the seed data, `rating.ts`, every
+ *       policies component) on demand, at the moment React first renders the
+ *       lazy element. That cost is the thing these tests exist to assert, so
+ *       pre-warming it away would assert less than it does now.
+ *
+ *     • ~350ms committing the page: `rateBook` over 140 policies, then 140
+ *       memoised rows each emitting the `[render]` logs CLAUDE.md requires and
+ *       Vitest funnels through its reporter.
+ *
+ *   Against that, dom-testing-library's 1000ms default is not a safety margin,
+ *   it is a coin flip — and it is the wrong default for the job, having been
+ *   chosen for "a state update settles", not "a bundler transforms a module
+ *   graph and a 140-row table renders". `CHUNK_TIMEOUT_MS` is that budget
+ *   stated explicitly, sized from the measurement with room for a cold or
+ *   loaded machine (StackBlitz's WebContainer is slower than a local run).
+ *
+ *   It costs nothing on the failure path worth caring about: a route whose
+ *   chunk is genuinely broken rejects its import, and the rejection surfaces
+ *   through the ErrorBoundary as a render — not as a wait that has to expire.
+ *   Only a route that hangs forever pays the full timeout, and that is a
+ *   failure mode worth waiting to be sure about.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, type ByRoleOptions } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import App from './App';
+
+/**
+ * Budget for one lazy chunk to transform, import, and render. See the header —
+ * this is a measured figure, not a number raised until the suite went green.
+ */
+const CHUNK_TIMEOUT_MS = 10_000;
 
 function renderAt(path: string): void {
   render(
@@ -38,22 +76,36 @@ function renderAt(path: string): void {
   );
 }
 
+/**
+ * `findByRole` with the chunk budget instead of the 1000ms default. Every wait
+ * in this file that depends on a lazy route resolving goes through here, so the
+ * budget is stated once rather than re-argued per assertion.
+ */
+function findInChunk(role: string, options: ByRoleOptions): Promise<HTMLElement> {
+  return screen.findByRole(role, options, { timeout: CHUNK_TIMEOUT_MS });
+}
+
 describe('route table', () => {
   it('resolves the dashboard chunk at /', async () => {
     renderAt('/');
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(await findInChunk('heading', { name: 'Dashboard' })).toBeInTheDocument();
   });
 
   it('resolves the policy book chunk at /policies', async () => {
     renderAt('/policies');
-    expect(await screen.findByRole('heading', { name: 'Policies' })).toBeInTheDocument();
+    /*
+     * The heading is the slow one — it is the first thing in the chunk, so
+     * waiting for it is waiting for the whole mount. Once it lands the tab is
+     * already in the DOM alongside it; the second wait is a scan, not a wait.
+     */
+    expect(await findInChunk('heading', { name: 'Policies' })).toBeInTheDocument();
     // Content from inside the chunk, not from AppLayout.
-    expect(await screen.findByRole('tab', { name: 'Policy list' })).toBeInTheDocument();
+    expect(await findInChunk('tab', { name: 'Policy list' })).toBeInTheDocument();
   });
 
   it('resolves the claim intake chunk at /claims/new without loading the wizard', async () => {
     renderAt('/claims/new');
-    expect(await screen.findByRole('button', { name: 'Start a claim' })).toBeInTheDocument();
+    expect(await findInChunk('button', { name: 'Start a claim' })).toBeInTheDocument();
 
     /*
      * The other half of W3-D3-02. `<Modal>` renders null while closed, so the
@@ -68,12 +120,12 @@ describe('route table', () => {
     renderAt('/underwriting');
     // RequireRole sends an agent to the dashboard rather than rendering the
     // route, so the underwriting chunk must not appear.
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(await findInChunk('heading', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Underwriting' })).not.toBeInTheDocument();
   });
 
   it('falls through to the 404 chunk for an unknown path', async () => {
     renderAt('/policies/POL-00001/nope/deeper');
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(await findInChunk('heading', { name: 'Page not found' })).toBeInTheDocument();
   });
 });

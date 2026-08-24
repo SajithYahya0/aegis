@@ -21,10 +21,14 @@
  *   /policies/:id would take the policy, the customer, the coverage table and
  *   the sidebar with it.
  *
- *   The `key` bump is the load-bearing part, and it is the part that is easy to
- *   get wrong. The obvious retry — `this.setState({ error: null })` — looks
- *   right and does nothing, because two separate caches sit between the button
- *   and a fresh attempt, and clearing error state defeats neither:
+ *   Recovery takes two mechanisms, and this header previously claimed one of
+ *   them did more than it does. The correction is recorded rather than quietly
+ *   applied, because the wrong version was believable enough to survive two
+ *   phases of review and ship a Retry button that could not work.
+ *
+ *   The obvious retry — `this.setState({ error: null })` — looks right and does
+ *   nothing, because two independent caches sit between the button and a fresh
+ *   attempt, and clearing error state defeats neither:
  *
  *     1. `getPolicyResource(id)` returns a *cached promise*. If that promise
  *        rejected, the Map still holds the rejected promise. Re-rendering the
@@ -32,20 +36,36 @@
  *        rejection back, and `use()` throws it again synchronously — before the
  *        browser paints. The fallback never even flickers away.
  *
- *     2. `React.lazy`'s module registry does the same thing one level up. A
- *        chunk whose import() rejected (offline, bad deploy) is remembered as
- *        failed by the lazy component itself, so re-rendering the same element
- *        re-throws without re-requesting anything.
+ *     2. `React.lazy` does the same thing one level up. A chunk whose import()
+ *        rejected (offline, bad deploy) is remembered as failed on a payload
+ *        object hanging off the lazy component itself, and every subsequent
+ *        read re-throws the stored error without re-requesting anything.
  *
- *   Remounting is what clears both, and remounting is what a changed `key`
- *   forces — same element type, new key, so React discards the old fiber and
- *   its memoised failure rather than reconciling with it. The `key` alone is
- *   still not enough for (1): a remounted child calls `getPolicyResource(id)`
- *   and the *module-level Map* is not part of any fiber, so it survives the
- *   remount untouched. That is what `onRetry` is for — callers pass
- *   `clearPolicyResource(id)`, which evicts the entry, and only then does the
- *   remount produce a genuinely new request. Two mechanisms, two caches; drop
- *   either and the Retry button is decorative.
+ *   WHAT THE `key` BUMP ACTUALLY DOES — and what it does not. It discards the
+ *   *fiber*: same element type, new key, so React drops the old instance and
+ *   its in-progress state rather than reconciling with it. That is necessary,
+ *   because a child that keeps its fiber keeps whatever local state led it into
+ *   the failure.
+ *
+ *   It clears NEITHER cache above. Both live at module scope, and module scope
+ *   is not part of any fiber — nothing React does to the tree can reach them.
+ *   An earlier version of this comment asserted that "remounting is what clears
+ *   both", which is false, and measurably so: a probe rendering a rejecting
+ *   `lazy()` inside this boundary recorded one import attempt before Retry and
+ *   one after. The loader was never called a second time and the fallback never
+ *   cleared. `src/shared/routes/lazyRoutes.test.tsx` is that probe, kept.
+ *
+ *   `onRetry` is therefore not a convenience — it is the half that does the
+ *   recovering, and every caller owes it. `PolicyDetailPage` and
+ *   `RiskExposurePanel` pass `clearPolicyResource(id)` to evict (1);
+ *   `App.tsx`'s `BoundedRoute` and `ClaimIntakePage` pass a `SplitChunk`'s
+ *   `reset()` to discard (2). A boundary wrapped around something cached, with
+ *   no `onRetry`, has a Retry button that clears the fallback for one frame and
+ *   re-throws — which is precisely what shipped around the lazy routes.
+ *
+ *   Ordering follows from that: `handleRetry` calls `onRetry` *before*
+ *   `setState`, because the remount re-renders the child immediately and the
+ *   cache has to already be clear when it does.
  */
 
 import { Component, Fragment, type ErrorInfo, type ReactNode } from 'react';

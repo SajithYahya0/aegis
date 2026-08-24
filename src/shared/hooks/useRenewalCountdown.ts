@@ -21,16 +21,26 @@
  *   the component happens to still be mounted when the countdown reaches
  *   zero.
  *
- *   `timerRef` and `lastActivityRef` as `useState` instead of `useRef`: the
- *   interval id is never read by JSX — it exists purely so the cleanup
- *   function can find the same interval to clear. Putting it in state would
- *   schedule a re-render every time the interval is (re)created for a value
- *   nothing on screen displays. `lastActivityRef` is worse if it were state:
- *   it updates on every `mousemove`, so idle tracking would re-render the
- *   whole policy detail page dozens of times a second while the mouse is
- *   simply resting on it — the opposite of what an idle detector is for.
- *   The tick-driven `useState` below exists precisely to be the *one*
- *   controlled place per second where a re-render is actually warranted.
+ *   `lastActivityRef` as `useState` instead of `useRef`: it updates on every
+ *   `mousemove`, so idle tracking would re-render the whole policy detail page
+ *   dozens of times a second while the mouse is simply resting on it — an idle
+ *   detector that makes the page busy while the user is idle has inverted its
+ *   own purpose. The tick-driven `useState` below exists precisely to be the
+ *   *one* controlled place per second where a re-render is actually warranted.
+ *
+ *   That is the whole rule, and it is worth stating as a rule because this file
+ *   previously got it wrong in the other direction: ref when the write
+ *   frequency and the render frequency differ, state when they are the same.
+ *   An earlier version also kept the interval id in a `timerRef`, which fails
+ *   that test — it is written once per effect run and read once per cleanup, by
+ *   a closure that can see the effect's own scope. A plain `const timer` inside
+ *   the effect is visible to the cleanup it returns and cannot be stale, since
+ *   there is exactly one interval per effect run by construction. The ref added
+ *   a mutable slot, a null check and a manual reset to re-derive what the
+ *   closure already guaranteed — the ref equivalent of a cargo-cult `useMemo`,
+ *   and worth naming as such rather than quietly deleting, because "a ref where
+ *   a closure variable suffices" is the most common way `useRef` gets misused
+ *   by someone who has just learned what it is for.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -68,8 +78,7 @@ export function useRenewalCountdown(endDate: string): RenewalCountdown {
   endMs.current = new Date(endDate).getTime();
 
   // Mutable bookkeeping the interval reads and the activity listeners write.
-  // Neither is meant to cause a render on its own — see the header.
-  const timerRef = useRef<number | null>(null);
+  // Written at pointer frequency, read once a second — see the header.
   const lastActivityRef = useRef<number>(Date.now());
 
   const [snapshot, setSnapshot] = useState(() => ({
@@ -86,7 +95,7 @@ export function useRenewalCountdown(endDate: string): RenewalCountdown {
       document.addEventListener(eventName, onActivity);
     }
 
-    timerRef.current = window.setInterval(() => {
+    const timer = window.setInterval(() => {
       const idleFor = Date.now() - lastActivityRef.current;
       setSnapshot({
         ...splitRemaining(endMs.current - Date.now()),
@@ -95,10 +104,7 @@ export function useRenewalCountdown(endDate: string): RenewalCountdown {
     }, TICK_MS);
 
     return () => {
-      if (timerRef.current !== null) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      window.clearInterval(timer);
       for (const eventName of ACTIVITY_EVENTS) {
         document.removeEventListener(eventName, onActivity);
       }

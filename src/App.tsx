@@ -43,6 +43,22 @@
  *   throw a suspended child produces when its promise rejects, and it has to
  *   outlive the fallback being torn down and replaced. Nesting them the other
  *   way round leaves the rejection with nowhere to land.
+ *
+ *   No `onRetry={route.reset}` on each boundary: this is what shipped through
+ *   Phase 5, and the Retry button it produced could not work. A failed chunk's
+ *   rejection is remembered on the lazy component at module scope, so the
+ *   boundary's `key` bump discards the fiber and reads the same rejection
+ *   straight back — measured, one import attempt before Retry and one after.
+ *   The button appeared, cleared the fallback for a frame, and re-threw. See
+ *   `lazyRoutes.tsx`'s header for the mechanism and `ErrorBoundary.tsx`'s for
+ *   the two other caches that need the same treatment.
+ *
+ *   `<BoundedRoute>` takes the whole `SplitChunk` rather than a `label`, a
+ *   `fallback` and `children` separately, so the component being rendered and
+ *   the `reset` being wired to its Retry cannot drift apart. Passing them as
+ *   two props invites exactly one bug — `PoliciesRoute.Component` next to
+ *   `DashboardRoute.reset` — which type-checks, renders correctly, and turns
+ *   Retry back into a no-op on one route only.
  */
 
 import { Suspense, type ReactElement, type ReactNode } from 'react';
@@ -61,25 +77,29 @@ import {
   PolicyDocumentsRoute,
   QuoteWizardRoute,
   UnderwritingRoute,
+  type LazyRoute,
 } from './shared/routes/lazyRoutes';
 import { RequireRole } from './shared/routes/RequireRole';
 import { AuthProvider } from './shared/store/AuthContext';
 import { QuoteProvider } from './shared/store/QuoteContext';
 
-interface LazyRouteProps {
+interface BoundedRouteProps {
   label: string;
   fallback: ReactNode;
-  children: ReactNode;
+  route: LazyRoute;
 }
 
 /**
- * One route's worth of boundaries. The nesting order is load-bearing — see
- * this file's header for why the ErrorBoundary sits outside the Suspense.
+ * One route's worth of boundaries, plus the chunk they guard. The nesting order
+ * is load-bearing — see this file's header for why the ErrorBoundary sits
+ * outside the Suspense, and why it needs `route.reset` to make Retry real.
  */
-function LazyRoute({ label, fallback, children }: LazyRouteProps): ReactElement {
+function BoundedRoute({ label, fallback, route }: BoundedRouteProps): ReactElement {
   return (
-    <ErrorBoundary label={label}>
-      <Suspense fallback={fallback}>{children}</Suspense>
+    <ErrorBoundary label={label} onRetry={route.reset}>
+      <Suspense fallback={fallback}>
+        <route.Component />
+      </Suspense>
     </ErrorBoundary>
   );
 }
@@ -92,71 +112,71 @@ export default function App(): ReactElement {
           <Route
             index
             element={
-              <LazyRoute label="Dashboard" fallback={<Skeleton variant="panel" rows={5} />}>
-                <DashboardRoute.Component />
-              </LazyRoute>
+              <BoundedRoute
+                label="Dashboard"
+                fallback={<Skeleton variant="panel" rows={5} />}
+                route={DashboardRoute}
+              />
             }
           />
 
           <Route
             path="policies"
             element={
-              <LazyRoute
+              <BoundedRoute
                 label="Policy book"
                 fallback={
                   <Skeleton variant="table" rows={10} columns={6} label="Loading policies" />
                 }
-              >
-                <PoliciesRoute.Component />
-              </LazyRoute>
+                route={PoliciesRoute}
+              />
             }
           />
 
           <Route
             path="policies/:id"
             element={
-              <LazyRoute label="Policy detail" fallback={<Skeleton variant="card" fields={6} />}>
-                <PolicyDetailRoute.Component />
-              </LazyRoute>
+              <BoundedRoute
+                label="Policy detail"
+                fallback={<Skeleton variant="card" fields={6} />}
+                route={PolicyDetailRoute}
+              />
             }
           >
             <Route
               index
               element={
-                <LazyRoute
+                <BoundedRoute
                   label="Coverage"
                   fallback={
                     <Skeleton variant="table" rows={4} columns={4} label="Loading coverage" />
                   }
-                >
-                  <PolicyCoverageRoute.Component />
-                </LazyRoute>
+                  route={PolicyCoverageRoute}
+                />
               }
             />
             <Route
               path="claims"
               element={
-                <LazyRoute
+                <BoundedRoute
                   label="Claims"
                   fallback={
                     <Skeleton variant="table" rows={4} columns={5} label="Loading claims" />
                   }
-                >
-                  <PolicyClaimsRoute.Component />
-                </LazyRoute>
+                  route={PolicyClaimsRoute}
+                />
               }
             />
             <Route
               path="documents"
               element={
-                <LazyRoute
+                <BoundedRoute
                   label="Documents"
                   fallback={
                     <Skeleton variant="table" rows={4} columns={4} label="Loading documents" />
                   }
-                >
-                  <PolicyDocumentsRoute.Component />
-                </LazyRoute>
+                  route={PolicyDocumentsRoute}
+                />
               }
             />
           </Route>
@@ -171,9 +191,11 @@ export default function App(): ReactElement {
             path="quote"
             element={
               <QuoteProvider>
-                <LazyRoute label="Quote wizard" fallback={<Skeleton variant="panel" rows={6} />}>
-                  <QuoteWizardRoute.Component />
-                </LazyRoute>
+                <BoundedRoute
+                  label="Quote wizard"
+                  fallback={<Skeleton variant="panel" rows={6} />}
+                  route={QuoteWizardRoute}
+                />
               </QuoteProvider>
             }
           />
@@ -181,9 +203,11 @@ export default function App(): ReactElement {
           <Route
             path="claims/new"
             element={
-              <LazyRoute label="Claim intake" fallback={<Skeleton variant="panel" rows={4} />}>
-                <ClaimIntakeRoute.Component />
-              </LazyRoute>
+              <BoundedRoute
+                label="Claim intake"
+                fallback={<Skeleton variant="panel" rows={4} />}
+                route={ClaimIntakeRoute}
+              />
             }
           />
 
@@ -191,9 +215,11 @@ export default function App(): ReactElement {
             path="underwriting"
             element={
               <RequireRole role="underwriter">
-                <LazyRoute label="Underwriting" fallback={<Skeleton variant="panel" rows={6} />}>
-                  <UnderwritingRoute.Component />
-                </LazyRoute>
+                <BoundedRoute
+                  label="Underwriting"
+                  fallback={<Skeleton variant="panel" rows={6} />}
+                  route={UnderwritingRoute}
+                />
               </RequireRole>
             }
           />
@@ -201,9 +227,11 @@ export default function App(): ReactElement {
           <Route
             path="*"
             element={
-              <LazyRoute label="Not found" fallback={<Skeleton variant="panel" rows={2} />}>
-                <NotFoundRoute.Component />
-              </LazyRoute>
+              <BoundedRoute
+                label="Not found"
+                fallback={<Skeleton variant="panel" rows={2} />}
+                route={NotFoundRoute}
+              />
             }
           />
         </Route>
