@@ -1,0 +1,9 @@
+.banner {
+  background: var(--c-status-pending-soft);
+  color: var(--c-status-pending);
+  border: 1px solid var(--c-status-pending);
+  border-radius: var(--radius);
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}

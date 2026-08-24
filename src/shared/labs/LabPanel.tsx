@@ -70,6 +70,11 @@ function sandboxFor(id: LabDefectId): ReactElement | null {
       // demonstrate containment even in principle. The demo is
       // /policies/:id itself.
       return null;
+    case 'claim-submit-failure':
+      // No inline sandbox: the thing being demonstrated is a useOptimistic
+      // rollback inside a real claims list, which this panel does not have.
+      // The demo is any policy's Claims tab.
+      return null;
   }
 }
 

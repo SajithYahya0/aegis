@@ -114,15 +114,15 @@ Legend for **Tier**:
 | C-01 | `useId` | C | Repeated insured-party fieldsets — label/input pairing | `src/shared/components/TextField.tsx` — `TextField`, used per-row in the insured-party fieldset in `src/routes/QuoteWizardPage.tsx`'s `ApplicantStep` | [x] |
 | C-02 | `useTransition` | C | Switching policy-book tabs without blocking input | `src/routes/PoliciesPage.tsx` — `handleViewChange` (`useTransition`), with `isPending` surfaced by `src/routes/policies/PolicyBookTabs.tsx` and the view whose render cost justifies it in `src/routes/policies/ExposureByCustomer.tsx` | [x] |
 | C-03 | `useDeferredValue` | C | Large filtered list lags behind search box | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` (`deferredQuery`) | [x] |
-| C-04 | `useSyncExternalStore` | C | Online/offline sync banner | | [ ] |
-| C-05 | `useOptimistic` | C | Claim status flips to "Submitting" before server confirms | | [ ] |
-| C-06 | `useActionState` | C | Claim submit action with returned error state | | [ ] |
-| C-07 | `useFormStatus` (react-dom) | C | Submit button disabled/pending inside the form | | [ ] |
+| C-04 | `useSyncExternalStore` | C | Online/offline sync banner | `src/shared/hooks/useOnlineStatus.ts` — `useOnlineStatus` (`subscribe`/`getSnapshot`/`getServerSnapshot`), consumed by `src/shared/components/ConnectivityBanner.tsx` — `ConnectivityBanner`, mounted once in `src/shared/layout/AppLayout.tsx` so it is reachable from every route. **On `labs/registry.ts`:** that module is exactly as legitimate a candidate for this row as `window`'s `online`/`offline` events — plain module state with a `subscribe`/`notify` pair, external to React, read via `useLabFlag`'s own `useState` + `useEffect` bridge instead of `useSyncExternalStore`. It is deliberately left alone rather than rewritten to claim this row, for two reasons. First, the named feature this row asks for is the connectivity banner specifically (see "Feature that forces it" above), and `useOnlineStatus` already builds that honestly — rewriting `useLabFlag` in addition would be a second, redundant claim on the same row, not a stronger one. Second, `useLabFlag` is working infrastructure that five other lab defects (`W2-D1-05`, `W2-D1-06`, `W2-D3-02`, `W3-D2-01`, `W3-D4-04`, `W3-D4-03`) and the C-05 toggle all depend on; changing it now would be a rewrite made for the matrix's benefit rather than the app's, which CLAUDE.md rules out ("a contrived usage is worse than an honest gap"). `useLabFlag`'s own header already documents why it exists as a `useState`+`useEffect` bridge rather than `useSyncExternalStore`. | [x] |
+| C-05 | `useOptimistic` | C | Claim status flips to "Submitting" before server confirms | `src/routes/policyDetail/PolicyClaimsTab.tsx` — `PolicyClaimsTab` (`useOptimistic` wraps `claims`; `addOptimisticClaim` called from `handleLogClaim` before `submitClaim` resolves). Forced-failure lab toggle: `claim-submit-failure` in `src/shared/labs/registry.ts`, read via `isLabEnabled` at submit time. **Deliberately not in `ClaimIntakeWizard`**, even though an earlier header in that file grouped all three React 19 form hooks together — see that file's current header for why: `useOptimistic` needs a list already on screen to show a pending entry in, and the wizard is a modal with no list, while `PolicyClaimsTab` has the real claims table sitting right there. | [x] |
+| C-06 | `useActionState` | C | Claim submit action with returned error state | `src/routes/claimIntake/ClaimIntakeWizard.tsx` — `ClaimIntakeWizard` (review step's `<form action={submitAction}>`; validation-ahead-of-submit, so the returned state carries the async write's own error) **and** `src/routes/policyDetail/PolicyClaimsTab.tsx` — `ClaimForm` (single-step form; the action reads `amount`/`description` straight from `FormData` and returns real per-field errors, rendered through `TextField`'s existing `error` prop). Two call sites on purpose: the wizard shows the "validate ahead, one error slot" shape, the quick-claim form shows the "validate from FormData, per-field errors" shape — the same hook used two genuinely different ways rather than one usage copy-pasted twice. | [x] |
+| C-07 | `useFormStatus` (react-dom) | C | Submit button disabled/pending inside the form | `src/shared/components/SubmitButton.tsx` — `SubmitButton`, used by both `ClaimIntakeWizard` (review step) and `PolicyClaimsTab`'s `ClaimForm`; `WizardNavButton` (in `ClaimIntakeWizard.tsx`) and `FormCancelButton` (in `PolicyClaimsTab.tsx`) read the same `useFormStatus()` to disable Back/Cancel while their shared `<form>` is mid-action, with no `pending` prop passed down from either page. | [x] |
 | C-08 | `useDebugValue` | C | Label inside `useLocalStorage` for DevTools | `src/shared/hooks/useLocalStorage.ts` — `useLocalStorage` (built in Phase 2, whose own header already named C-08 — another pass where the matrix row itself was never updated to match; caught in this phase's audit alongside W2-D1-05/06) | [x] |
 | C-09 | `createPortal` | C | Modal + toast rendered outside the DOM subtree | `src/shared/components/Modal.tsx` — `Modal`, `src/shared/components/Toast.tsx` — `Toast` (both portal to `#modal-root`, declared in `index.html`) | [x] |
 | C-10 | `flushSync` | C | Scroll-to-new-row immediately after append | `src/routes/policyDetail/PolicyClaimsTab.tsx` — `handleLogClaim` (`flushSync` around the append, then `lastRowRef.current.scrollIntoView(...)`) | [x] |
 | C-11 | `startTransition` (standalone) | C | Non-urgent filter commit outside a component | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` (wraps the debounced `setSearchParams` commit, called from an effect rather than an input handler) | [x] |
-| C-12 | `memo` + `useMemo` interaction proof | C | Render-count table in `docs/failure-modes.md` | | [ ] |
+| C-12 | `memo` + `useMemo` interaction proof | C | Render-count table in `docs/failure-modes.md` | `docs/render-counts.md` — measured, not estimated: console output captured from a real `PoliciesPage` mount plus four search-box keystrokes (`npx vitest run` against a temporary probe, deleted after the numbers were recorded). Evidence lives in `src/routes/policies/PolicyRow.tsx` (`React.memo`), `src/shared/rating.ts` (`useMemo`-wrapped `rateBook`, invoked from `src/routes/PoliciesPage.tsx`), and `src/routes/policies/FilterStatus.tsx` (deliberately un-memoised, W3-D1-06 — the contrast baseline). | [x] |
 
 ---
 
@@ -150,7 +150,7 @@ directly (see the Week 2 section above).
 
 ## Audit
 
-Total rows: **83**. Complete: **78**. Remaining: **5**.
+Total rows: **83**. Complete: **83**. Remaining: **0**.
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -223,6 +223,72 @@ Total rows: **83**. Complete: **78**. Remaining: **5**.
 > One new lab defect was registered: `risk-feed-outage` (W3-D4-03), pointing
 > the policy-detail risk widget at `fetchRiskFeed`. It is the only entry in
 > `LAB_DEFECTS` whose symptom is that the *rest of the page keeps working*.
+>
+> Phase 5 closed its full 5-row target list — C-04 through C-07 and C-12 —
+> and nothing else; every other row was already checked coming in. C-06 and
+> C-07 land in two files rather than one: `ClaimIntakeWizard` (the review
+> step's async submit, validated ahead of time) and `PolicyClaimsTab`'s
+> `ClaimForm` (a single-step form validated from `FormData`, with real
+> per-field errors). C-05 deliberately did NOT join them in
+> `ClaimIntakeWizard`, despite that file's own header once grouping all three
+> React 19 form hooks together — `useOptimistic` needs a list on screen to
+> optimistically update, and only `PolicyClaimsTab` has one; forcing it into
+> the wizard would have meant inventing a list nothing else there needs, the
+> kind of contrived usage CLAUDE.md rules out. `ClaimIntakeWizard`'s header
+> was rewritten to say so directly rather than silently diverging from its
+> own prior plan. A new lab toggle, `claim-submit-failure`, was registered
+> alongside the five existing ones so the C-05 rollback path is demonstrable
+> on demand rather than only on bad luck. C-04 was built as the connectivity
+> banner per this phase's brief; `labs/registry.ts` was left as-is — see that
+> row's own entry above for why, and note in its own header now points back
+> here.
+>
+> One bookkeeping correction while auditing this pass: C-06/C-07's target
+> feature ("Claim submit action with returned error state" / "Submit button
+> disabled/pending inside the form") does not name a specific file the way
+> most rows do, so both plausible homes were built rather than picking one
+> and leaving the other's submit flow on its pre-19 `useState` shape. Neither
+> is a contrived add-on: `ClaimIntakeWizard`'s submit and `PolicyClaimsTab`'s
+> quick-claim submit were both real, already-shipped forms with real
+> `submitting`/`formError` state before this phase; this phase replaced that
+> state with the React 19 hooks that do the same job, in both places, rather
+> than inventing a new form for the sake of the row.
+
+---
+
+## Still unchecked after Phase 5
+
+**None.** All 83 rows are checked. The full-repo audit below confirms each
+one names a real file, a real export, and a route the agent can actually
+click to — not just a file that compiles.
+
+### Full-repo reachability audit (Phase 5)
+
+Every row's File/Export column was re-checked against the current source
+tree: does the named file exist, does it export what the row claims, and is
+it reachable from a route without editing code or flipping a compile-time
+flag. Two categories of finding, both already folded into the table above
+rather than left as a separate to-do list:
+
+- **Bookkeeping gaps from earlier phases**, where the code was real and
+  reachable but the matrix row had not been updated to point at it. All were
+  caught and closed in earlier phases' own audits (W2-D1-05, W2-D1-06,
+  C-08 — see the Phase 3 note above) — none turned up newly in this pass.
+- **Dev-only reachability**: `LabPanel` (and therefore every `LAB_DEFECTS`
+  toggle, including the new `claim-submit-failure`) is mounted only when
+  `import.meta.env.DEV` is true (`AppLayout.tsx`). This is intentional — a
+  production build should not ship a panel that flips live defects — and it
+  is the same condition every other lab-gated row has always been checked
+  under, not a new exception carved out for this phase.
+
+No row is checked without a file that exists, an export that matches, and a
+click-path from a route. The lazy-route tests in `App.test.tsx` cover the
+top-level path for every route; the tab/modal/toggle-level reachability
+(Claims tab's log-claim flow, the claim intake wizard's review step, the
+lab panel's checkboxes) was walked by hand against the running dev server
+and against the temporary render/optimistic probes described in
+`docs/render-counts.md` and `docs/failure-modes.md`, both deleted after
+their output was recorded.
 
 Final check before the review: open the app, click every route, and confirm each
 row's file is actually reached. A row whose code exists but is never rendered

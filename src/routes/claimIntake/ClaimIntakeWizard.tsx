@@ -10,7 +10,14 @@
  *   `module.default` and nothing else, so a named export here would fail at
  *   runtime rather than at compile time.
  *
- * CONCEPTS: W3-D3-02
+ *   The final submit is built on `useActionState`: the review step's "Submit
+ *   claim" button lives inside a `<form action={submitAction}>`, and the
+ *   action — not an `onClick` handler — owns the async call and the resulting
+ *   error state. `WizardNavButton` and `SubmitButton` both read that form's
+ *   pending flag via `useFormStatus` (C-07) instead of a `submitting` prop
+ *   threaded down from here.
+ *
+ * CONCEPTS: W3-D3-02, C-06, C-07
  *
  * WITHOUT THIS:
  *   Route-level splitting alone stops one route short. `/claims/new` is a page
@@ -39,14 +46,25 @@
  *   suspending, which unmounts the thing being waited for. The boundary goes
  *   inside the dialog.
  *
- *   Deliberately plain submission: this hands the finished draft to `onSubmit`
- *   and lets the caller do the write. The React 19 form hooks the submit path
- *   wants — `useActionState`, `useOptimistic`, `useFormStatus` (C-06, C-05,
- *   C-07) — belong to Phase 5 and are not faked here. A `useState`
- *   submitting-flag stands in until then, and is the thing Phase 5 deletes.
+ *   `useOptimistic` (C-05) deliberately does NOT live here, even though an
+ *   earlier version of this header grouped all three React 19 form hooks
+ *   together as "the submit path wants." `useOptimistic` needs a list to show
+ *   a pending entry in before the server confirms, and this wizard has none —
+ *   it is a modal that closes on success, not a table. `PolicyClaimsTab`'s
+ *   "log claim" flow has a real claims table sitting right there, and that is
+ *   where C-05 is built instead. Forcing all three hooks into this one file
+ *   because an early comment grouped them would have meant inventing a list
+ *   here nothing else in the wizard needs — the kind of contrived usage
+ *   CLAUDE.md rules out.
+ *
+ *   The action still hands the finished draft to the caller-supplied
+ *   `onSubmit` and lets it do the write — `submitClaim` itself lives in
+ *   `api.ts`, not here.
  */
 
-import { useMemo, useState, type ReactElement } from 'react';
+import { useActionState, useMemo, useState, type ReactElement, type ReactNode } from 'react';
+import { useFormStatus } from 'react-dom';
+import { SubmitButton } from '../../shared/components/SubmitButton';
 import { TextField } from '../../shared/components/TextField';
 import { customersById, policies } from '../../shared/data';
 import { formatCurrency } from '../../shared/format';
@@ -106,8 +124,9 @@ export default function ClaimIntakeWizard({
   const [amount, setAmount] = useState('');
   const [incidentDate, setIncidentDate] = useState('');
   const [description, setDescription] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  // Step-transition validation only — see the header for why the *submit*
+  // error lives in `submitState` instead, returned from the action below.
+  const [stepError, setStepError] = useState<string | null>(null);
 
   /*
    * Part of what makes this chunk worth splitting: a searchable index over the
@@ -132,62 +151,73 @@ export default function ClaimIntakeWizard({
   function goNext(): void {
     if (step === 'Policy') {
       if (!selected) {
-        setError('Pick a policy from the list before continuing.');
+        setStepError('Pick a policy from the list before continuing.');
         return;
       }
-      setError(null);
+      setStepError(null);
       setStep('Incident');
       return;
     }
 
     if (step === 'Incident') {
       if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-        setError('Enter a claim amount greater than zero.');
+        setStepError('Enter a claim amount greater than zero.');
         return;
       }
       if (selected && parsedAmount > selected.sumInsured) {
-        setError(
+        setStepError(
           `Claimed amount exceeds the sum insured of ${formatCurrency(selected.sumInsured)}.`,
         );
         return;
       }
       if (!incidentDate) {
-        setError('Enter the date of the incident.');
+        setStepError('Enter the date of the incident.');
         return;
       }
       if (!description.trim()) {
-        setError('Describe the loss before continuing.');
+        setStepError('Describe the loss before continuing.');
         return;
       }
-      setError(null);
+      setStepError(null);
       setStep('Review');
     }
   }
 
   function goBack(): void {
-    setError(null);
+    setStepError(null);
     if (step === 'Review') setStep('Incident');
     else if (step === 'Incident') setStep('Policy');
   }
 
-  async function handleSubmit(): Promise<void> {
-    if (!selected) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await onSubmit({
-        policyId: selected.id,
-        type,
-        amount: parsedAmount,
-        incidentDate,
-        description: description.trim(),
-      });
-    } catch (thrown) {
-      setError(thrown instanceof Error ? thrown.message : 'Could not submit the claim.');
-      setSubmitting(false);
-    }
-  }
+  /*
+   * C-06: the review step's submit lives in this action, not an onClick
+   * handler. By the time the agent can reach the Review step every field has
+   * already passed `goNext`'s per-step validation, so the only failure this
+   * action returns is the async one — the write itself rejecting. `formData`
+   * goes unused deliberately: the values it would carry already live in this
+   * closure as controlled state, and re-deriving them from FormData would be
+   * a second, redundant source of truth for the same three fields.
+   */
+  const [submitState, submitAction] = useActionState<{ error: string | null }, FormData>(
+    async (_previousState) => {
+      if (!selected) return { error: 'Pick a policy from the list before continuing.' };
+      try {
+        await onSubmit({
+          policyId: selected.id,
+          type,
+          amount: parsedAmount,
+          incidentDate,
+          description: description.trim(),
+        });
+        return { error: null };
+      } catch (thrown) {
+        return { error: thrown instanceof Error ? thrown.message : 'Could not submit the claim.' };
+      }
+    },
+    { error: null },
+  );
 
+  const displayedError = stepError ?? submitState.error;
   const stepIndex = STEPS.indexOf(step);
 
   return (
@@ -292,27 +322,23 @@ export default function ClaimIntakeWizard({
           </div>
         ) : null}
 
-        {error ? (
+        {displayedError ? (
           <p className={styles.error} role="alert">
-            {error}
+            {displayedError}
           </p>
         ) : null}
       </div>
 
-      <div className={styles.actions}>
-        <button type="button" onClick={step === 'Policy' ? onCancel : goBack} disabled={submitting}>
+      <form className={styles.actions} action={submitAction}>
+        <WizardNavButton onClick={step === 'Policy' ? onCancel : goBack}>
           {step === 'Policy' ? 'Cancel' : 'Back'}
-        </button>
+        </WizardNavButton>
         {step === 'Review' ? (
-          <button type="button" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Submit claim'}
-          </button>
+          <SubmitButton label="Submit claim" pendingLabel="Submitting…" />
         ) : (
-          <button type="button" onClick={goNext} disabled={submitting}>
-            Continue
-          </button>
+          <WizardNavButton onClick={goNext}>Continue</WizardNavButton>
         )}
-      </div>
+      </form>
     </div>
   );
 }
@@ -323,5 +349,28 @@ function ReviewRow({ label, value }: { label: string; value: string }): ReactEle
       <span className={styles.reviewLabel}>{label}</span>
       <span className={styles.reviewValue}>{value}</span>
     </div>
+  );
+}
+
+/**
+ * `type="button"` — Back/Cancel/Continue must never trigger the enclosing
+ * `<form>`'s submit action, only the review step's `<SubmitButton>` should.
+ * `disabled={pending}` comes from the same `useFormStatus()` read as
+ * `SubmitButton`'s: both are descendants of the one `<form>` this wizard
+ * renders, so both agree about "mid-submit" without either being told so by
+ * a prop from `ClaimIntakeWizard`.
+ */
+function WizardNavButton({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: ReactNode;
+}): ReactElement {
+  const { pending } = useFormStatus();
+  return (
+    <button type="button" onClick={onClick} disabled={pending}>
+      {children}
+    </button>
   );
 }

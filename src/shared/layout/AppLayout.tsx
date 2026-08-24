@@ -39,6 +39,7 @@
 
 import type { ReactElement } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { ConnectivityBanner } from '../components/ConnectivityBanner';
 import { AS_OF } from '../data';
 import { formatDate } from '../format';
 import { LabPanel } from '../labs';
@@ -107,6 +108,7 @@ export function AppLayout(): ReactElement {
       </header>
 
       <main className={styles.main}>
+        <ConnectivityBanner />
         <Outlet />
         {import.meta.env.DEV ? <LabPanel /> : null}
       </main>

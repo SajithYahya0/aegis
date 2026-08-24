@@ -33,3 +33,9 @@
 .newRow {
   background: var(--c-accent-soft);
 }
+
+.pendingRow {
+  background: var(--c-status-pending-soft);
+  color: var(--c-status-pending);
+  font-style: italic;
+}

@@ -7,8 +7,8 @@
  *   hooks, and a `useContext` call cannot be trusted to survive next to that.
  *
  * CONCEPTS: (infrastructure for W2-D1-05, W2-D1-06, W2-D3-02, W3-D2-01,
- *   W3-D4-04, W3-D4-03 — see the individual demo files and QuoteContext for
- *   where each one fires)
+ *   W3-D4-04, W3-D4-03, C-05 — see the individual demo files, QuoteContext and
+ *   PolicyClaimsTab for where each one fires)
  *
  * WITHOUT THIS:
  *   Every defect would need its own bespoke boolean prop threaded down from
@@ -24,7 +24,8 @@ export type LabDefectId =
   | 'object-literal-effect-dep'
   | 'stale-closure-interval'
   | 'layout-effect-flicker'
-  | 'risk-feed-outage';
+  | 'risk-feed-outage'
+  | 'claim-submit-failure';
 
 export interface LabDefect {
   id: LabDefectId;
@@ -125,6 +126,26 @@ export const LAB_DEFECTS: readonly LabDefect[] = [
       '`[api] →` line) and then fails again, because the endpoint is down for ' +
       'good. A Retry that silently did nothing would look identical on screen ' +
       'without the console.',
+  },
+  {
+    id: 'claim-submit-failure',
+    title: 'Claim submission forced to fail',
+    matrixId: 'C-05',
+    summary:
+      'PolicyClaimsTab passes forceFailure: true to api.ts’s submitClaim ' +
+      'whenever this is on, so the underwriting gateway rejects the write ' +
+      'regardless of what was actually filled in — the same forced rejection ' +
+      'submitClaim has supported since Phase 0, finally with a caller.',
+    symptom:
+      'Open any policy → Claims tab → "Log claim", fill in a valid amount and ' +
+      'description, submit. The row appears in the table immediately, ' +
+      'labelled "Submitting…" — that is the useOptimistic update, before the ' +
+      'simulated 400–900ms round trip has even resolved. With this toggle on, ' +
+      'the row then disappears again a moment later (the optimistic entry ' +
+      'rolls back because the real submitClaim call never succeeds) and a ' +
+      'toast reports the rejection. Turn the toggle off and submit the same ' +
+      'form: the row appears the same way and this time it sticks, because ' +
+      'the real write behind it succeeded.',
   },
 ];
 
