@@ -1,0 +1,31 @@
+.statusBadge {
+  display: inline-block;
+  padding: 2px var(--s-2);
+  border-radius: var(--radius);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.statusActive {
+  composes: statusBadge;
+  background: var(--c-status-active-soft);
+  color: var(--c-status-active);
+}
+
+.statusPending {
+  composes: statusBadge;
+  background: var(--c-status-pending-soft);
+  color: var(--c-status-pending);
+}
+
+.statusLapsed {
+  composes: statusBadge;
+  background: var(--c-status-lapsed-soft);
+  color: var(--c-status-lapsed);
+}
+
+.statusCancelled {
+  composes: statusBadge;
+  background: var(--c-status-cancelled-soft);
+  color: var(--c-status-cancelled);
+}
