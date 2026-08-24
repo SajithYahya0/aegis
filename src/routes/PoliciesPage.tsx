@@ -6,7 +6,7 @@
  *   deferred-value pieces, and this component turns the result into
  *   `React.memo` rows priced by a rating pass over the whole book.
  *
- * CONCEPTS: W1-13, W1-09, W1-14, W3-D1-03, W3-D1-05, W1-05, W1-06
+ * CONCEPTS: W1-13, W1-09, W1-14, W3-D1-03, W3-D1-05, W1-05, W1-06, C-02
  *
  * WITHOUT THIS:
  *   `premiums` is deliberately `rateBook(policies, customers, claims)` over
@@ -58,15 +58,47 @@
  *   read the same stale `recentIds` snapshot and each write their own
  *   single-item list, so the second write silently overwrites the first
  *   instead of both ending up in the list.
+ *
+ *   No `useTransition` around the view switch (C-02): `setView` would be an
+ *   urgent update, and urgent means React is not allowed to show anything
+ *   until the resulting render is complete. Switching to "Exposure by
+ *   customer" therefore has to unmount up to 140 memoised `PolicyRow`s and
+ *   mount a fresh aggregate table in one uninterruptible block before the
+ *   browser paints again. Anything the user does during that block waits for
+ *   it — including a keystroke in the search box directly above, which is why
+ *   the failure is visible rather than theoretical: type while the switch is
+ *   in flight and the character appears late, in a burst, after the new table
+ *   has rendered. The input is controlled, so the delay is in echoing the
+ *   character the user already typed.
+ *
+ *   Marking the switch as a transition inverts the priority. React keeps the
+ *   current view on screen and renders the next one in the background, and —
+ *   the part that actually matters — that background render is
+ *   *interruptible*: an urgent update like a keystroke pre-empts it, gets
+ *   painted immediately, and the transition restarts. The switch may finish
+ *   slightly later; the input never stops responding. `isPending` is what pays
+ *   for keeping stale content on screen while that happens; see
+ *   `PolicyBookTabs`.
+ *
+ *   Note the division of labour with `useDeferredValue` in `usePolicyFilters`
+ *   (C-03), which is the same priority idea entered from the other end.
+ *   `useDeferredValue` defers a *value* the component does not control the
+ *   source of — the query text, which arrives from an input that must stay
+ *   urgent. `useTransition` marks a *state update this component owns* as
+ *   non-urgent. Here the tab click is ours to classify, so `useTransition` is
+ *   the right one; a deferred `view` value would still leave `setView` itself
+ *   urgent and fix nothing.
  */
 
-import { useCallback, useMemo, type ReactElement } from 'react';
+import { useCallback, useMemo, useState, useTransition, type ReactElement } from 'react';
 import { Panel } from '../shared/components/Panel';
 import { claims, customers, customersById, policies } from '../shared/data';
 import { useLocalStorage } from '../shared/hooks/useLocalStorage';
 import { usePolicyFilters } from '../shared/hooks/usePolicyFilters';
 import { rateBook } from '../shared/rating';
+import { ExposureByCustomer } from './policies/ExposureByCustomer';
 import { FilterStatus } from './policies/FilterStatus';
+import { PolicyBookTabs, type BookView } from './policies/PolicyBookTabs';
 import { PolicyFilterBar } from './policies/PolicyFilterBar';
 import { PolicyList } from './policies/PolicyList';
 import { RecentlyViewed } from './policies/RecentlyViewed';
@@ -98,6 +130,21 @@ export default function PoliciesPage(): ReactElement {
     () => rateBook(policies, customers, claims),
     [policies, customers, claims],
   );
+
+  const [view, setView] = useState<BookView>('book');
+  const [isSwitchingView, startViewTransition] = useTransition();
+
+  /*
+   * C-02. The click that lands here is urgent; the render it causes is not.
+   * `startViewTransition` is what tells React the difference — without it
+   * React has no way to know that this particular `setState` is allowed to
+   * take a while, because nothing about a `setState` call says so.
+   */
+  const handleViewChange = useCallback((next: BookView) => {
+    startViewTransition(() => {
+      setView(next);
+    });
+  }, []);
 
   const [recentIds, setRecentIds] = useLocalStorage<string[]>(RECENTS_KEY, []);
 
@@ -133,13 +180,24 @@ export default function PoliciesPage(): ReactElement {
         </Panel>
       )}
 
-      <PolicyList
-        policies={filtered}
-        customersById={customersById}
-        premiumsById={premiums}
-        onSelect={handleSelect}
-        isStale={isStale}
-      />
+      <PolicyBookTabs view={view} onSelect={handleViewChange} isPending={isSwitchingView} />
+
+      {view === 'book' ? (
+        <PolicyList
+          policies={filtered}
+          customersById={customersById}
+          premiumsById={premiums}
+          onSelect={handleSelect}
+          isStale={isStale}
+        />
+      ) : (
+        <ExposureByCustomer
+          policies={filtered}
+          customersById={customersById}
+          premiumsById={premiums}
+          isStale={isStale}
+        />
+      )}
     </div>
   );
 }

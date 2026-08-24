@@ -88,22 +88,22 @@ Legend for **Tier**:
 | W3-D2-05 | Custom hook — composition (hook using hooks) | R | `usePolicyFilters` = search params + debounce + memo | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` | [x] |
 | W3-D2-06 | Testing a custom hook | R | `useDebounce.test.ts`, `useLocalStorage.test.ts` (fake timers) | `src/shared/hooks/useDebounce.test.ts`, `src/shared/hooks/useLocalStorage.test.ts` | [x] |
 | W3-D2-07 | Testing a component | R | `PolicyList.test.tsx` — filter narrows rows | `src/routes/policies/PolicyList.test.tsx` | [x] |
-| W3-D3-01 | `React.lazy` — route-level splitting | R | All top-level routes | | [ ] |
-| W3-D3-02 | `React.lazy` — component-level splitting | R | Claim intake wizard (heavy, modal-only) | | [ ] |
-| W3-D3-03 | `<Suspense>` fallback | R | Per-route boundary | | [ ] |
-| W3-D3-04 | Skeleton UI while chunk loads | R | `Skeleton.tsx` variants | | [ ] |
-| W3-D3-05 | Preloading on intent (hover/focus) | R | Sidebar nav preloads route chunk | | [ ] |
-| W3-D4-01 | Error Boundary class component | R | `ErrorBoundary.tsx` — `getDerivedStateFromError` + `componentDidCatch` | | [ ] |
-| W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | | [ ] |
-| W3-D4-03 | Scoped boundary — widget fails, page survives | R | Claims widget throws; policy detail still renders | | [ ] |
+| W3-D3-01 | `React.lazy` — route-level splitting | R | All top-level routes | `src/shared/routes/lazyRoutes.ts` — `lazyRoute` + the seven top-level route exports, consumed by `src/App.tsx`; separate chunks confirmed in `vite build` output | [x] |
+| W3-D3-02 | `React.lazy` — component-level splitting | R | Claim intake wizard (heavy, modal-only) | `src/routes/ClaimIntakePage.tsx` — module-scope `lazy(() => import('./claimIntake/ClaimIntakeWizard'))`, rendered only inside an open `<Modal>`. Verified twice: its own chunk in `vite build`, and *not* loaded while the modal is closed by `src/App.test.tsx` | [x] |
+| W3-D3-03 | `<Suspense>` fallback | R | Per-route boundary | `src/App.tsx` — `LazyRoute` (one `<Suspense>` per route **and** per `/policies/:id` tab); also `src/routes/PolicyDetailPage.tsx`, `src/routes/policyDetail/RiskExposureWidget.tsx`, `src/routes/ClaimIntakePage.tsx` | [x] |
+| W3-D3-04 | Skeleton UI while chunk loads | R | `Skeleton.tsx` variants | `src/shared/components/Skeleton.tsx` — `Skeleton` (`table` / `card` / `panel`) | [x] |
+| W3-D3-05 | Preloading on intent (hover/focus) | R | Sidebar nav preloads route chunk | `src/shared/routes/lazyRoutes.ts` — `preloadPath` / `LazyRoute.preload`, wired to `onMouseEnter` **and** `onFocus` in `src/shared/layout/AppLayout.tsx`; logs `[chunk] ↓ … (preload)` then `⤳ … already requested (render)` | [x] |
+| W3-D4-01 | Error Boundary class component | R | `ErrorBoundary.tsx` — `getDerivedStateFromError` + `componentDidCatch` | `src/shared/components/ErrorBoundary.tsx` — `ErrorBoundary`; tested in `src/shared/components/ErrorBoundary.test.tsx` | [x] |
+| W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | `src/shared/components/ErrorBoundary.tsx` — `handleRetry` + `<Fragment key={attempt}>`, paired with the `onRetry` cache eviction (`clearPolicyResource`). Both halves — the remount *and* the eviction ordering — are tested in `ErrorBoundary.test.tsx` | [x] |
+| W3-D4-03 | Scoped boundary — widget fails, page survives | R | Claims widget throws; policy detail still renders | `src/routes/policyDetail/RiskExposureWidget.tsx` — `RiskExposurePanel`, wired to `api.ts`'s always-rejecting `fetchRiskFeed` behind the `risk-feed-outage` lab toggle. **Deliberate deviation:** the failing widget is the risk feed, not the Claims tab. Making Claims the one that throws would mean converting it from the `useFetch` + `AbortController` path to the `use()` + Suspense path, and CLAUDE.md requires both paths to exist *and* to be contrastable — they now sit on the same page, one tab apart. `fetchRiskFeed` was built in Phase 0 for exactly this row (see its header) | [x] |
 | W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | `src/routes/quoteWizard/StickyPremiumSummary.tsx` — `StickyPremiumSummary`, toggled by the `layout-effect-flicker` lab defect (`src/shared/labs/registry.ts`) | [x] |
 | W3-D4-05 | `forwardRef` | R | `Modal`, `TextField` | `src/shared/components/Modal.tsx` — `Modal` (`TextField` deliberately does not need `forwardRef` — see its own header; nothing in the app grabs its DOM node directly, `Modal`'s generic `querySelectorAll` focus search covers it) | [x] |
 | W3-D4-06 | `useImperativeHandle` — exposed API | R | `modalRef.current.open()/close()/focusFirst()` | `src/shared/components/Modal.tsx` — `Modal`, consumed via `modalRef` in `src/routes/policyDetail/PolicyClaimsTab.tsx` | [x] |
-| W3-D5-01 | `use()` — unwrapping a promise | R | Policy detail data | | [ ] |
-| W3-D5-02 | Suspense for data + cached promise (no fetch loop) | R | `api.ts` promise cache keyed by policy id | | [ ] |
-| W3-D5-03 | `use()` with Context (conditional read) | R | Theme/role read inside a branch | | [ ] |
-| W3-D5-04 | Suspense + ErrorBoundary together | R | Rejected promise caught by boundary | | [ ] |
-| W3-D5-05 | Refactor prior routes to lazy-load | R | Whole route table | | [ ] |
+| W3-D5-01 | `use()` — unwrapping a promise | R | Policy detail data | `src/routes/policyDetail/PolicySummaryCard.tsx` — `PolicySummaryCard` (`use(getPolicyResource(policyId))`, no loading/error state of its own) | [x] |
+| W3-D5-02 | Suspense for data + cached promise (no fetch loop) | R | `api.ts` promise cache keyed by policy id | `src/shared/api.ts` — `getPolicyResource` / `clearPolicyResource`, consumed by `PolicySummaryCard` and `RiskExposureWidget`. Proved in the console: one `[api] →` per policy per session against many `[api] ⤳ cache hit` + `[render] PolicySummaryCard` pairs | [x] |
+| W3-D5-03 | `use()` with Context (conditional read) | R | Theme/role read inside a branch | `src/routes/policyDetail/PolicySummaryCard.tsx` — `use(AuthContext)` inside the `lapsed`/`cancelled` branch, so an active policy never subscribes to auth at all. `AuthContext` is exported from `src/shared/store/AuthContext.tsx` specifically for this | [x] |
+| W3-D5-04 | Suspense + ErrorBoundary together | R | Rejected promise caught by boundary | `src/routes/policyDetail/RiskExposureWidget.tsx` — `RiskExposurePanel` (ErrorBoundary → Suspense → `use()` on a promise that is pending then rejected); same pairing in `src/App.tsx`'s `LazyRoute` and `src/routes/PolicyDetailPage.tsx` | [x] |
+| W3-D5-05 | Refactor prior routes to lazy-load | R | Whole route table | `src/App.tsx` — `App`; all seven top-level routes **and** the three `/policies/:id` tabs are lazy. Walked at runtime by `src/App.test.tsx` | [x] |
 
 ---
 
@@ -112,7 +112,7 @@ Legend for **Tier**:
 | ID | Concept | Tier | Feature that forces it | File / Export | Done |
 |---|---|---|---|---|---|
 | C-01 | `useId` | C | Repeated insured-party fieldsets — label/input pairing | `src/shared/components/TextField.tsx` — `TextField`, used per-row in the insured-party fieldset in `src/routes/QuoteWizardPage.tsx`'s `ApplicantStep` | [x] |
-| C-02 | `useTransition` | C | Switching policy-book tabs without blocking input | | [ ] |
+| C-02 | `useTransition` | C | Switching policy-book tabs without blocking input | `src/routes/PoliciesPage.tsx` — `handleViewChange` (`useTransition`), with `isPending` surfaced by `src/routes/policies/PolicyBookTabs.tsx` and the view whose render cost justifies it in `src/routes/policies/ExposureByCustomer.tsx` | [x] |
 | C-03 | `useDeferredValue` | C | Large filtered list lags behind search box | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` (`deferredQuery`) | [x] |
 | C-04 | `useSyncExternalStore` | C | Online/offline sync banner | | [ ] |
 | C-05 | `useOptimistic` | C | Claim status flips to "Submitting" before server confirms | | [ ] |
@@ -137,7 +137,7 @@ from a route the user can click to. Later phases claim them.
 | `src/shared/types.ts` | Customer, Policy, Claim, Quote, Coverage, Role, PolicyDocument, InsuredParty | W1-03, once a typed prop interface is actually passed to `PolicyRow` |
 | `src/shared/data/` | 40 customers, **140** policies, 60 claims, 463 documents, seeded, zero orphan references | W1-08, once a list renders them with a stable key |
 | `src/shared/rating.ts` | `ratePolicy` / `rateBook`; full book prices in **21–42ms** warm | W3-D1-03, once /policies re-prices on a keystroke |
-| `src/shared/api.ts` | Abortable `fetch*` path **and** `getPolicyResource` cached-promise path; `fetchRiskFeed` always rejects | W2-D1-01…03 and W3-D5-01…04, once a route consumes them |
+| `src/shared/api.ts` | Abortable `fetch*` path **and** `getPolicyResource` cached-promise path; `fetchRiskFeed` always rejects | ~~W2-D1-01…03 and W3-D5-01…04, once a route consumes them~~ — **all claimed as of Phase 4**; `fetchRiskFeed` finally has its consumer |
 | `src/shared/format.ts` | Cached `Intl` formatters | W3-D1-02, once `PremiumBadge`'s comparator compares formatted output |
 | `src/styles/global.css` | Reset + tokens; CSS Module conventions documented | W1-12, once a module composes a conditional status class |
 The Phase 0 boot shell's `useMemo` around `rateBook` is **not** W3-D1-03. That
@@ -150,7 +150,7 @@ directly (see the Week 2 section above).
 
 ## Audit
 
-Total rows: **83**. Complete: **64**. Remaining: **19**.
+Total rows: **83**. Complete: **78**. Remaining: **5**.
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -184,6 +184,45 @@ Total rows: **83**. Complete: **64**. Remaining: **19**.
 > W2-D1-05/06: `useLocalStorage` (Phase 2) already calls `useDebugValue` and
 > its own header already named C-08, but the matrix row was never updated to
 > match. See "Still unchecked after Phase 3" below for what is left.
+>
+> Phase 4 closed its full 14-row target list and nothing else: W3-D3-01
+> through W3-D3-05, W3-D4-01 through W3-D4-03, W3-D5-01 through W3-D5-05,
+> and C-02. No bonus rows, and no bookkeeping gaps found — Phase 3's audit
+> had already swept those. Three of this phase's claims are backed by
+> something stronger than a file path, because they are the kind that can be
+> asserted without being true:
+>
+>   • **Splitting actually split.** `vite build` emits a separate chunk per
+>     route plus a separate `ClaimIntakeWizard` chunk, and `rating.ts` moved
+>     out of the entry chunk into `PoliciesPage`'s. Checked, not assumed —
+>     and the check found one thing that did *not* move: `src/shared/data`
+>     stays in the entry chunk, because `AppLayout` imports `AS_OF` from it
+>     and a module reachable from a statically-imported component cannot be
+>     lazily chunked. That is recorded in `lazyRoutes.ts`'s header rather
+>     than quietly omitted, because "the split did not help, and the reason
+>     is one stray static import in shared chrome" is the most common way
+>     this concept fails in practice.
+>
+>   • **The boundary retry actually recovers.** `ErrorBoundary.test.tsx`
+>     covers both halves — the `key` bump remounting the child, and
+>     `onRetry` firing *before* that remount. Writing it surfaced a React
+>     behaviour worth knowing: a child that throws only on its first render
+>     never reaches a boundary at all, because React discards a failed
+>     concurrent render and immediately re-renders the root synchronously.
+>     The test had to model a deterministic failure gated on external state,
+>     which is also the more faithful model of a poisoned cache entry.
+>
+>   • **Every route still resolves.** `src/App.test.tsx` walks the route
+>     table and asserts on content from inside each lazy chunk. This is the
+>     automated form of the manual "click every route" check below, and it
+>     matters more now than it did before: until this phase a broken route
+>     import failed the build and could not ship. With lazy routes the same
+>     mistake builds and deploys cleanly and breaks exactly one page —
+>     whichever one nobody opened.
+>
+> One new lab defect was registered: `risk-feed-outage` (W3-D4-03), pointing
+> the policy-detail risk widget at `fetchRiskFeed`. It is the only entry in
+> `LAB_DEFECTS` whose symptom is that the *rest of the page keeps working*.
 
 Final check before the review: open the app, click every route, and confirm each
 row's file is actually reached. A row whose code exists but is never rendered
@@ -281,3 +320,37 @@ Every row in Phase 3's own target list (W2-D1-01…07, W2-D2-01…03, W3-D4-04�
 C-01, C-09, C-10) closed, plus the W3-D2-04 and C-08 bonuses described above.
 Everything else unchecked belongs to Phase 4 or Phase 5 per
 `docs/phase-prompts.md`.
+---
+
+## Still unchecked after Phase 4
+
+5 rows, all in the completeness tier, all owned by Phase 5:
+
+- **C-04 — `useSyncExternalStore`.** The online/offline sync banner. Nothing in
+  Phase 4 subscribes to an external store that React does not own. Note that
+  `src/shared/labs/registry.ts` *is* exactly such a store — plain module state
+  with a subscribe/notify pair — and `useLabFlag` currently bridges it with
+  `useState` + `useEffect`. That is a real, honest candidate for this row, and
+  it is deliberately not claimed yet: the named feature is the connectivity
+  banner, and rewriting `useLabFlag` in this phase would have been a change to
+  working infrastructure made for the matrix's benefit rather than the app's.
+  Phase 5 should decide between the two rather than inherit an assumption.
+- **C-05 — `useOptimistic`.** Claim status flipping to "Submitting" before the
+  server confirms. `api.ts`'s `submitClaim` already takes a `forceFailure`
+  option built for the rollback demo, and it still has no optimistic consumer.
+- **C-06 — `useActionState`.** The claim submit action with returned error
+  state. `ClaimIntakeWizard` deliberately ships with a plain `useState`
+  submitting flag instead; that flag is the thing Phase 5 deletes.
+- **C-07 — `useFormStatus`.** The submit button's pending state read from
+  inside the form. Depends on C-06 landing first — `useFormStatus` reads from a
+  parent `<form>`'s action, so it needs a form that has one.
+- **C-12 — `memo` + `useMemo` interaction proof.** The render-count table in
+  `docs/failure-modes.md`, which does not exist yet. Phase 5 owns that file.
+  The evidence it needs is already produced at runtime by the `[render]` logs
+  in `PolicyRow` / `PremiumBadge` and the bug write-up in `PoliciesPage`'s
+  header; what is missing is the document, not the behaviour.
+
+Every row in Phase 4's own target list (W3-D3-01…05, W3-D4-01…03, W3-D5-01…05,
+C-02) closed, with no bonuses and no deferrals. Week 1, Week 2 and Week 3 are
+now complete in full — 78 of 83 rows — and everything still open is a
+completeness-tier row that Phase 5 owns per `docs/phase-prompts.md`.

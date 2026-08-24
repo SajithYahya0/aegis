@@ -7,8 +7,8 @@
  *   hooks, and a `useContext` call cannot be trusted to survive next to that.
  *
  * CONCEPTS: (infrastructure for W2-D1-05, W2-D1-06, W2-D3-02, W3-D2-01,
- *   W3-D4-04 — see the individual demo files and QuoteContext for where each
- *   one fires)
+ *   W3-D4-04, W3-D4-03 — see the individual demo files and QuoteContext for
+ *   where each one fires)
  *
  * WITHOUT THIS:
  *   Every defect would need its own bespoke boolean prop threaded down from
@@ -23,7 +23,8 @@ export type LabDefectId =
   | 'mutating-reducer'
   | 'object-literal-effect-dep'
   | 'stale-closure-interval'
-  | 'layout-effect-flicker';
+  | 'layout-effect-flicker'
+  | 'risk-feed-outage';
 
 export interface LabDefect {
   id: LabDefectId;
@@ -104,6 +105,26 @@ export const LAB_DEFECTS: readonly LabDefect[] = [
       'later, instead of appearing already docked. No inline sandbox here — ' +
       'the effect lives in the real StickyPremiumSummary component, not a ' +
       'stand-in, so the wizard route is the demo.',
+  },
+  {
+    id: 'risk-feed-outage',
+    title: 'Third-party risk feed outage',
+    matrixId: 'W3-D4-03',
+    summary:
+      'Points the risk-exposure widget on /policies/:id at api.ts’s ' +
+      'fetchRiskFeed endpoint, which rejects on every call by design. The ' +
+      'rejected promise is read with use(), so it surfaces as a throw during ' +
+      'render — not as an error state a component branches on.',
+    symptom:
+      'Open any policy with this on. The risk widget shows a skeleton, then a ' +
+      'red fallback with a Retry button; the policy header, coverage table and ' +
+      'tab nav around it keep rendering untouched. That containment is the ' +
+      'point — this is the only defect in the list whose "symptom" is that ' +
+      'the rest of the page does NOT break. Press Retry: it evicts the cached ' +
+      'rejection and remounts, so it genuinely re-requests (watch for a second ' +
+      '`[api] →` line) and then fails again, because the endpoint is down for ' +
+      'good. A Retry that silently did nothing would look identical on screen ' +
+      'without the console.',
   },
 ];
 

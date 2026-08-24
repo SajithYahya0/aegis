@@ -1,0 +1,151 @@
+/*
+ * Dimensions here are not decorative — they are the contract with the real
+ * components these placeholders stand in for. See Skeleton.tsx's header.
+ */
+
+.bar {
+  display: block;
+  /*
+   * 1.45em is the line box of one row of text at the inherited font size,
+   * because global.css sets `line-height: 1.45` on body. Rendering the bar as
+   * a block of exactly that height makes a skeleton `<td>` the same height as
+   * a `<td>` holding one line of text — including inside `<thead>`, where the
+   * global `th` rule drops the font size to var(--fs-xs) and the em shrinks
+   * with it. That is the whole reason this is `em` and not a pixel value.
+   */
+  height: 1.45em;
+  border-radius: var(--radius);
+  background-color: var(--c-surface-sunken);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: 120% 0;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/*
+ * global.css clamps every animation to 0.01ms under reduced motion. For a
+ * one-shot transition that is a stop; for this infinite loop it would be a
+ * strobe — the gradient would restart hundreds of times a second. Kill the
+ * animation outright instead and leave the flat sunken bar.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+    background-image: none;
+  }
+}
+
+/* -- table variant --------------------------------------------------------- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- panel variant --------------------------------------------------------- */
+
+/*
+ * These four values are copied from Panel.module.css on purpose. A panel
+ * skeleton that guesses its own padding is a panel skeleton that shifts the
+ * page when the real Panel arrives.
+ */
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--c-border);
+}
+
+/* Panel's <h2> title is var(--fs-xl); match it so the header strip is the
+   same height as a titled Panel's. */
+.panelTitleBar {
+  composes: bar;
+  font-size: var(--fs-xl);
+  width: 9rem;
+}
+
+.panelBody {
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-2);
+}
+
+/* -- card variant ---------------------------------------------------------- */
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-3);
+}
+
+.cardHeadingBar {
+  composes: bar;
+  font-size: var(--fs-lg);
+  width: 12rem;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--s-3) var(--s-4);
+}
+
+.cardField {
+  display: grid;
+  gap: var(--s-1);
+}
+
+.cardLabelBar {
+  composes: bar;
+  font-size: var(--fs-xs);
+  width: 60%;
+}
+
+.cardValueBar {
+  composes: bar;
+  width: 85%;
+}
+
+/* -- accessibility --------------------------------------------------------- */
+
+/*
+ * Present to a screen reader, absent from layout. `display: none` and
+ * `visibility: hidden` both remove the element from the accessibility tree,
+ * which would make the status announcement silent — the opposite of the
+ * intent. See the `Announce` helper in Skeleton.tsx.
+ */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

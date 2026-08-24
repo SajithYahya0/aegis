@@ -1,0 +1,46 @@
+.tabs {
+  display: flex;
+  gap: var(--s-1);
+  align-items: center;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: var(--s-3);
+}
+
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: var(--s-2) var(--s-3);
+  color: var(--c-text-muted);
+  font-weight: 600;
+}
+
+.tab:hover {
+  color: var(--c-text);
+}
+
+.tabActive {
+  composes: tab;
+  color: var(--c-accent);
+  border-bottom-color: var(--c-accent);
+}
+
+/*
+ * The pending affordance. `visibility` rather than conditional rendering so
+ * the strip does not change height when it appears — the tabs sit directly
+ * above a long table and a 1px reflow there is visible all the way down.
+ */
+.pending {
+  margin-left: auto;
+  padding-right: var(--s-2);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-text-faint);
+  visibility: hidden;
+}
+
+.pendingVisible {
+  composes: pending;
+  visibility: visible;
+}

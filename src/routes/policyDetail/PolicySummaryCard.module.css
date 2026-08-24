@@ -1,0 +1,73 @@
+/*
+ * Kept dimension-compatible with Skeleton's `card` variant: same border,
+ * radius, padding and the same auto-fit minmax(140px, 1fr) field track. If
+ * either side changes, the other has to change with it or the swap from
+ * fallback to content shifts the page. See Skeleton.tsx's header.
+ */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-3);
+}
+
+.heading {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--s-3) var(--s-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--s-1);
+}
+
+.label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+}
+
+.reinstatement {
+  background: var(--c-status-pending-soft);
+  border-left: 3px solid var(--c-status-pending);
+  border-radius: var(--radius);
+  padding: var(--s-2) var(--s-3);
+  color: var(--c-status-pending);
+}
+
+.disclosure {
+  justify-self: start;
+  background: none;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: var(--s-1) var(--s-2);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.disclosure:hover {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.breakdown {
+  border-top: 1px solid var(--c-border);
+  padding-top: var(--s-3);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}

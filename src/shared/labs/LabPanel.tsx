@@ -62,6 +62,14 @@ function sandboxFor(id: LabDefectId): ReactElement | null {
       // component on /quote, for the same reason — a synthetic panel here
       // would prove the mechanism but not that it happens live.
       return null;
+    case 'risk-feed-outage':
+      // No inline sandbox, and here the reason is stronger than convenience:
+      // the whole claim being made is that the failure stays contained to one
+      // widget while the surrounding page keeps working. A sandbox rendered
+      // inside this panel has no surrounding page to survive, so it could not
+      // demonstrate containment even in principle. The demo is
+      // /policies/:id itself.
+      return null;
   }
 }
 

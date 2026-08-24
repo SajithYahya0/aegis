@@ -6,7 +6,7 @@
  *   itself just another element in that table, not something `App.tsx` has
  *   to render by hand around each `<Route>`.
  *
- * CONCEPTS: W2-D4-04
+ * CONCEPTS: W2-D4-04, W3-D3-05
  *
  * WITHOUT THIS:
  *   Every page component would have to import and render its own sidebar and
@@ -14,6 +14,27 @@
  *   of one copy total — and the moment one page's copy drifts (a missed
  *   route, a typo'd path), that page's sidebar silently disagrees with every
  *   other page's about which link is "active".
+ *
+ *   No preload on hover/focus: every route is its own chunk now, so a click on
+ *   "Policies" starts a network round trip the user then waits through,
+ *   watching a skeleton. The download only begins at the moment React renders
+ *   the lazy element — that is, strictly after the click. But the intent to
+ *   navigate becomes observable a few hundred milliseconds earlier, when the
+ *   pointer lands on the link. Starting the fetch on `mouseenter` spends that
+ *   otherwise-dead interval on the download, so by the time the click arrives
+ *   the module is usually already resolved and the skeleton never paints.
+ *   The same bytes are fetched either way; this changes only *when*, which is
+ *   the difference between a visible loading state and none.
+ *
+ *   Hover alone would be an accessibility bug rather than a feature: a
+ *   keyboard user tabbing through the sidebar never fires `mouseenter`, so
+ *   they would take the slow path on every single navigation while mouse users
+ *   took the fast one. `onFocus` is the keyboard-equivalent intent signal, and
+ *   is wired alongside hover for exactly that reason.
+ *
+ *   `preloadPath` is idempotent (see `lazyRoutes.ts`), which is what makes it
+ *   safe on two handlers that routinely both fire for the same link — focus
+ *   follows click, so a mouse user usually triggers both within a few frames.
  */
 
 import type { ReactElement } from 'react';
@@ -21,6 +42,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { AS_OF } from '../data';
 import { formatDate } from '../format';
 import { LabPanel } from '../labs';
+import { preloadPath } from '../routes/lazyRoutes';
 import { useAuth } from '../store/AuthContext';
 import type { Role } from '../types';
 import styles from './AppLayout.module.css';
@@ -48,7 +70,14 @@ export function AppLayout(): ReactElement {
         <div className={styles.brand}>AEGIS</div>
         <nav className={styles.nav}>
           {NAV_ITEMS.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClassName}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={navLinkClassName}
+              onMouseEnter={() => preloadPath(item.to)}
+              onFocus={() => preloadPath(item.to)}
+            >
               {item.label}
             </NavLink>
           ))}

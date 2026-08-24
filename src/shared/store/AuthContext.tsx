@@ -47,7 +47,15 @@ export interface AuthContextValue {
   switchRole: (role: Role) => void;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+/**
+ * Exported, unlike most context objects, because `use(AuthContext)` needs the
+ * context itself — not the `useAuth()` wrapper. `useAuth` is a hook and
+ * therefore obeys the rules of hooks: it cannot be called inside an `if`.
+ * `use()` can, and `PolicySummaryCard` reads the role that way (W3-D5-03), so
+ * the raw context has to be reachable. `useAuth` remains the right call
+ * everywhere the read is unconditional — it keeps the missing-provider guard.
+ */
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>('agent');
