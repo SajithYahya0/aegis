@@ -1,0 +1,66 @@
+/*
+ * Phase 0 boot shell only. Phase 1 replaces App.tsx with the route table and
+ * this module goes with it — the layout shell gets its own module beside it.
+ */
+
+.shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: var(--s-6);
+}
+
+.card {
+  width: min(640px, 100%);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  padding: var(--s-6);
+}
+
+.eyebrow {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+  margin-bottom: var(--s-2);
+}
+
+.lede {
+  color: var(--c-text-muted);
+  margin-top: var(--s-2);
+}
+
+.stats {
+  margin-top: var(--s-5);
+  border-top: 1px solid var(--c-border);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.label {
+  color: var(--c-text-muted);
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  margin-top: var(--s-5);
+  padding: var(--s-3);
+  background: var(--c-surface-sunken);
+  border-radius: var(--radius);
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
