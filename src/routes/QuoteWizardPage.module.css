@@ -2,6 +2,20 @@
   max-width: 720px;
 }
 
+/*
+ * Sticky and pinned to the very top of the scroll area, so its rendered
+ * height is exactly what `StickyPremiumSummary` measures to dock itself
+ * directly beneath — see that component's header for why the offset is
+ * measured rather than hard-coded.
+ */
+.wizardHeader {
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  background: var(--c-bg);
+  padding-top: var(--s-1);
+}
+
 .steps {
   display: flex;
   gap: var(--s-2);
@@ -39,7 +53,7 @@
 .insuredRow {
   display: flex;
   gap: var(--s-2);
-  align-items: center;
+  align-items: flex-end;
   margin-bottom: var(--s-2);
 }
 

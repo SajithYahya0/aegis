@@ -1,0 +1,51 @@
+/*
+ * `position: fixed`, not `sticky` — see the component's header for why
+ * `sticky`'s `top` never rendered any differently regardless of the
+ * measured-vs-fallback value on this short, non-scrolling page.
+ */
+.bar {
+  position: fixed;
+  left: calc(var(--nav-width) + var(--s-5));
+  width: 720px;
+  max-width: calc(100vw - var(--nav-width) - 2 * var(--s-5));
+  z-index: 50;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  background: var(--c-accent-soft);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--radius);
+  padding: var(--s-2) var(--s-4);
+}
+
+/*
+ * `.bar` is removed from normal flow by `position: fixed`, so this reserves
+ * the vertical space it would otherwise occupy — a fixed height, not a
+ * measured one, because the bar's own content never varies enough to need
+ * runtime measurement. Unrelated to the offset bug this file demonstrates:
+ * this spacer's height never changes, only where `.bar` itself is drawn does.
+ */
+.spacer {
+  height: 45px;
+  margin-bottom: var(--s-4);
+}
+
+.label {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.amount {
+  font-size: var(--fs-lg);
+  color: var(--c-accent);
+}
+
+.up {
+  font-size: var(--fs-xs);
+  color: var(--c-status-lapsed);
+}
+
+.down {
+  font-size: var(--fs-xs);
+  color: var(--c-status-active);
+}

@@ -1,0 +1,13 @@
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--s-6);
+  transform: translateX(-50%);
+  background: var(--c-text);
+  color: var(--c-surface);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--fs-sm);
+  z-index: 200;
+}

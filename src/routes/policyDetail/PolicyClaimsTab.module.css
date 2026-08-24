@@ -1,0 +1,35 @@
+.toolbar {
+  margin-bottom: var(--s-3);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 320px;
+}
+
+.form label {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.form select {
+  width: 100%;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+.formError {
+  color: var(--c-danger);
+  font-size: var(--fs-sm);
+}
+
+.newRow {
+  background: var(--c-accent-soft);
+}

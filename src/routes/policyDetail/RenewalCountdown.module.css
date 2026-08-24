@@ -1,0 +1,23 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  margin-bottom: var(--s-3);
+}
+
+.clock {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+}
+
+.idle {
+  padding: 2px var(--s-2);
+  border-radius: var(--radius);
+  background: var(--c-status-pending-soft);
+  color: var(--c-status-pending);
+  font-weight: 600;
+  font-size: var(--fs-xs);
+}

@@ -6,8 +6,9 @@
  *   toggle from inside a component that is deliberately breaking the rules of
  *   hooks, and a `useContext` call cannot be trusted to survive next to that.
  *
- * CONCEPTS: (infrastructure for W2-D1-05, W2-D1-06, W2-D3-02, W3-D2-01 — see
- *   the individual demo files and QuoteContext for where each one fires)
+ * CONCEPTS: (infrastructure for W2-D1-05, W2-D1-06, W2-D3-02, W3-D2-01,
+ *   W3-D4-04 — see the individual demo files and QuoteContext for where each
+ *   one fires)
  *
  * WITHOUT THIS:
  *   Every defect would need its own bespoke boolean prop threaded down from
@@ -21,7 +22,8 @@ export type LabDefectId =
   | 'conditional-hook'
   | 'mutating-reducer'
   | 'object-literal-effect-dep'
-  | 'stale-closure-interval';
+  | 'stale-closure-interval'
+  | 'layout-effect-flicker';
 
 export interface LabDefect {
   id: LabDefectId;
@@ -85,6 +87,23 @@ export const LAB_DEFECTS: readonly LabDefect[] = [
       'Click "Increment" a few times, then watch "Last logged": it stays frozen ' +
       'at whatever count existed on mount, even though the count on screen keeps ' +
       'climbing.',
+  },
+  {
+    id: 'layout-effect-flicker',
+    title: 'useEffect instead of useLayoutEffect for a paint-blocking measurement',
+    matrixId: 'W3-D4-04',
+    summary:
+      'The quote wizard’s sticky premium summary measures its local header’s ' +
+      'rendered height to know where to dock. With this on, that measurement ' +
+      'moves from useLayoutEffect (runs before the browser paints) to useEffect ' +
+      '(runs after), so the very first paint happens with the pre-measurement ' +
+      'fallback offset.',
+    symptom:
+      'Go to /quote with this toggle on: the sticky premium bar visibly starts ' +
+      'at the top of the page and jumps down to its docked position a frame ' +
+      'later, instead of appearing already docked. No inline sandbox here — ' +
+      'the effect lives in the real StickyPremiumSummary component, not a ' +
+      'stand-in, so the wizard route is the demo.',
   },
 ];
 

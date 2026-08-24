@@ -40,16 +40,16 @@ Legend for **Tier**:
 
 | ID | Concept | Tier | Feature that forces it | File / Export | Done |
 |---|---|---|---|---|---|
-| W2-D1-01 | `useEffect` — mount-only fetch (`[]` deps) | R | Claims history load on `/policies/:id/claims` | | [ ] |
-| W2-D1-02 | `useEffect` — dependency-driven refetch | R | Refetch claims when `:id` changes | | [ ] |
-| W2-D1-03 | `useEffect` — cleanup with `AbortController` | R | Cancel in-flight claims fetch on route change | | [ ] |
-| W2-D1-04 | `useEffect` — cleanup of subscription/interval | R | Renewal countdown timer teardown | | [ ] |
-| W2-D1-05 | Pitfall: infinite loop (object dep) | R | Registered lab defect — object literal in deps | | [ ] |
-| W2-D1-06 | Pitfall: stale closure | R | Registered lab defect — interval reading stale count | | [ ] |
-| W2-D1-07 | Effect vs derived state (when NOT to use effect) | R | Premium total derived in render, documented in header | | [ ] |
-| W2-D2-01 | `useRef` — DOM node access & focus | R | Autofocus first field when claim modal opens | | [ ] |
-| W2-D2-02 | `useRef` — mutable value, no re-render | R | Idle-session timer id + last-activity timestamp | | [ ] |
-| W2-D2-03 | `useRef` — previous-value pattern | R | Premium delta indicator ("was ₹X") | | [ ] |
+| W2-D1-01 | `useEffect` — mount-only fetch (`[]` deps) | R | Claims history load on `/policies/:id/claims` | `src/shared/hooks/useFetch.ts` — `useFetch`, used by `src/routes/policyDetail/PolicyClaimsTab.tsx` (see the hook's header for why one `[policyId]`-keyed effect honestly claims this row and W2-D1-02 both) | [x] |
+| W2-D1-02 | `useEffect` — dependency-driven refetch | R | Refetch claims when `:id` changes | `src/shared/hooks/useFetch.ts` — `useFetch` (effect deps = caller's `deps`, e.g. `[policyId]`) | [x] |
+| W2-D1-03 | `useEffect` — cleanup with `AbortController` | R | Cancel in-flight claims fetch on route change | `src/shared/hooks/useFetch.ts` — `useFetch` (`controller.abort()` in the cleanup) | [x] |
+| W2-D1-04 | `useEffect` — cleanup of subscription/interval | R | Renewal countdown timer teardown | `src/shared/hooks/useRenewalCountdown.ts` — `useRenewalCountdown`, used by `src/routes/policyDetail/RenewalCountdown.tsx` | [x] |
+| W2-D1-05 | Pitfall: infinite loop (object dep) | R | Registered lab defect — object literal in deps | `src/shared/labs/EffectDepsDemo.tsx` — `EffectDepsDemo` (built in Phase 1, reachable via the dev-only `LabPanel` mounted in `AppLayout` on every route — never actually claimed until this pass caught the gap) | [x] |
+| W2-D1-06 | Pitfall: stale closure | R | Registered lab defect — interval reading stale count | `src/shared/labs/StaleClosureDemo.tsx` — `StaleClosureDemo` (same Phase 1 gap as W2-D1-05 — see note above) | [x] |
+| W2-D1-07 | Effect vs derived state (when NOT to use effect) | R | Premium total derived in render, documented in header | `src/routes/QuoteWizardPage.tsx` — `estimateIndicativePremium`, called directly in the render body (no `useState`/`useEffect` pair) | [x] |
+| W2-D2-01 | `useRef` — DOM node access & focus | R | Autofocus first field when claim modal opens | `src/shared/components/Modal.tsx` — `Modal` (`containerRef` + `focusFirst()`) | [x] |
+| W2-D2-02 | `useRef` — mutable value, no re-render | R | Idle-session timer id + last-activity timestamp | `src/shared/hooks/useRenewalCountdown.ts` — `useRenewalCountdown` (`timerRef`, `lastActivityRef`) | [x] |
+| W2-D2-03 | `useRef` — previous-value pattern | R | Premium delta indicator ("was ₹X") | `src/shared/hooks/usePrevious.ts` — `usePrevious`, used by `src/routes/quoteWizard/StickyPremiumSummary.tsx` | [x] |
 | W2-D2-04 | `createContext` + Provider | R | `AuthContext` (current user + role) | `src/shared/store/AuthContext.tsx` — `AuthProvider` | [x] |
 | W2-D2-05 | `useContext` consumption | R | Role-gated underwriter actions | `src/shared/routes/RequireRole.tsx` — `RequireRole` (`useAuth()`) | [x] |
 | W2-D2-06 | Context split to limit re-renders (state vs dispatch) | R | `QuoteStateContext` / `QuoteDispatchContext` | `src/shared/store/QuoteContext.tsx` — `QuoteStateContext`, `QuoteDispatchContext` | [x] |
@@ -84,7 +84,7 @@ Legend for **Tier**:
 | W3-D2-01 | Rules of hooks (violation demonstrated) | R | Registered lab defect: conditional hook call | `src/shared/labs/ConditionalHookDemo.tsx` — `ConditionalHookDemo` | [x] |
 | W3-D2-02 | Custom hook — `useLocalStorage` | R | Recently-viewed policies list on /policies | `src/shared/hooks/useLocalStorage.ts` — `useLocalStorage`, used by `src/routes/PoliciesPage.tsx` | [x] |
 | W3-D2-03 | Custom hook — `useDebounce` | R | Policy search input | `src/shared/hooks/useDebounce.ts` — `useDebounce`, used by `src/shared/hooks/usePolicyFilters.ts` | [x] |
-| W3-D2-04 | Custom hook — `useFetch` | R | Claims history loader | | [ ] |
+| W3-D2-04 | Custom hook — `useFetch` | R | Claims history loader | `src/shared/hooks/useFetch.ts` — `useFetch`, used by `src/routes/policyDetail/PolicyClaimsTab.tsx` (not one of Phase 3's own target rows, but built as part of it and genuinely reachable — closing it now rather than leaving it stale) | [x] |
 | W3-D2-05 | Custom hook — composition (hook using hooks) | R | `usePolicyFilters` = search params + debounce + memo | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` | [x] |
 | W3-D2-06 | Testing a custom hook | R | `useDebounce.test.ts`, `useLocalStorage.test.ts` (fake timers) | `src/shared/hooks/useDebounce.test.ts`, `src/shared/hooks/useLocalStorage.test.ts` | [x] |
 | W3-D2-07 | Testing a component | R | `PolicyList.test.tsx` — filter narrows rows | `src/routes/policies/PolicyList.test.tsx` | [x] |
@@ -96,9 +96,9 @@ Legend for **Tier**:
 | W3-D4-01 | Error Boundary class component | R | `ErrorBoundary.tsx` — `getDerivedStateFromError` + `componentDidCatch` | | [ ] |
 | W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | | [ ] |
 | W3-D4-03 | Scoped boundary — widget fails, page survives | R | Claims widget throws; policy detail still renders | | [ ] |
-| W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | | [ ] |
-| W3-D4-05 | `forwardRef` | R | `Modal`, `TextField` | | [ ] |
-| W3-D4-06 | `useImperativeHandle` — exposed API | R | `modalRef.current.open()/close()/focusFirst()` | | [ ] |
+| W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | `src/routes/quoteWizard/StickyPremiumSummary.tsx` — `StickyPremiumSummary`, toggled by the `layout-effect-flicker` lab defect (`src/shared/labs/registry.ts`) | [x] |
+| W3-D4-05 | `forwardRef` | R | `Modal`, `TextField` | `src/shared/components/Modal.tsx` — `Modal` (`TextField` deliberately does not need `forwardRef` — see its own header; nothing in the app grabs its DOM node directly, `Modal`'s generic `querySelectorAll` focus search covers it) | [x] |
+| W3-D4-06 | `useImperativeHandle` — exposed API | R | `modalRef.current.open()/close()/focusFirst()` | `src/shared/components/Modal.tsx` — `Modal`, consumed via `modalRef` in `src/routes/policyDetail/PolicyClaimsTab.tsx` | [x] |
 | W3-D5-01 | `use()` — unwrapping a promise | R | Policy detail data | | [ ] |
 | W3-D5-02 | Suspense for data + cached promise (no fetch loop) | R | `api.ts` promise cache keyed by policy id | | [ ] |
 | W3-D5-03 | `use()` with Context (conditional read) | R | Theme/role read inside a branch | | [ ] |
@@ -111,16 +111,16 @@ Legend for **Tier**:
 
 | ID | Concept | Tier | Feature that forces it | File / Export | Done |
 |---|---|---|---|---|---|
-| C-01 | `useId` | C | Repeated insured-party fieldsets — label/input pairing | | [ ] |
+| C-01 | `useId` | C | Repeated insured-party fieldsets — label/input pairing | `src/shared/components/TextField.tsx` — `TextField`, used per-row in the insured-party fieldset in `src/routes/QuoteWizardPage.tsx`'s `ApplicantStep` | [x] |
 | C-02 | `useTransition` | C | Switching policy-book tabs without blocking input | | [ ] |
 | C-03 | `useDeferredValue` | C | Large filtered list lags behind search box | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` (`deferredQuery`) | [x] |
 | C-04 | `useSyncExternalStore` | C | Online/offline sync banner | | [ ] |
 | C-05 | `useOptimistic` | C | Claim status flips to "Submitting" before server confirms | | [ ] |
 | C-06 | `useActionState` | C | Claim submit action with returned error state | | [ ] |
 | C-07 | `useFormStatus` (react-dom) | C | Submit button disabled/pending inside the form | | [ ] |
-| C-08 | `useDebugValue` | C | Label inside `useLocalStorage` for DevTools | | [ ] |
-| C-09 | `createPortal` | C | Modal + toast rendered outside the DOM subtree | | [ ] |
-| C-10 | `flushSync` | C | Scroll-to-new-row immediately after append | | [ ] |
+| C-08 | `useDebugValue` | C | Label inside `useLocalStorage` for DevTools | `src/shared/hooks/useLocalStorage.ts` — `useLocalStorage` (built in Phase 2, whose own header already named C-08 — another pass where the matrix row itself was never updated to match; caught in this phase's audit alongside W2-D1-05/06) | [x] |
+| C-09 | `createPortal` | C | Modal + toast rendered outside the DOM subtree | `src/shared/components/Modal.tsx` — `Modal`, `src/shared/components/Toast.tsx` — `Toast` (both portal to `#modal-root`, declared in `index.html`) | [x] |
+| C-10 | `flushSync` | C | Scroll-to-new-row immediately after append | `src/routes/policyDetail/PolicyClaimsTab.tsx` — `handleLogClaim` (`flushSync` around the append, then `lastRowRef.current.scrollIntoView(...)`) | [x] |
 | C-11 | `startTransition` (standalone) | C | Non-urgent filter commit outside a component | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` (wraps the debounced `setSearchParams` commit, called from an effect rather than an input handler) | [x] |
 | C-12 | `memo` + `useMemo` interaction proof | C | Render-count table in `docs/failure-modes.md` | | [ ] |
 
@@ -150,7 +150,7 @@ directly (see the Week 2 section above).
 
 ## Audit
 
-Total rows: **83**. Complete: **46**. Remaining: **37**.
+Total rows: **83**. Complete: **64**. Remaining: **19**.
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -168,6 +168,22 @@ Total rows: **83**. Complete: **46**. Remaining: **37**.
 > W3-D2-02, 03, 05, 06, 07 (W3-D2-04 — `useFetch` — deliberately not claimed;
 > the claims-history loader it belongs to is Phase 3's), and C-03, C-11. See
 > "Still unchecked after Phase 2" below.
+>
+> Phase 3 closed 18 rows: its full 16-row target list — W2-D1-01 through
+> W2-D1-07, W2-D2-01 through W2-D2-03, W3-D4-04 through W3-D4-06, and C-01,
+> C-09, C-10 — plus two bonus rows outside that list, W3-D2-04 and C-08. Of
+> the 16 target rows, 14 needed real new code (`useFetch`,
+> `useRenewalCountdown`, `Modal`, `Toast`, `TextField`,
+> `StickyPremiumSummary`, the `estimateIndicativePremium` derived value, the
+> claim-logging flow's `flushSync`); two (W2-D1-05, W2-D1-06) needed none —
+> `EffectDepsDemo` and `StaleClosureDemo` were built in Phase 1 and have been
+> reachable via the dev-only `LabPanel` on every route ever since, but no
+> phase's audit had pointed the matrix at them. The `W3-D2-04` bonus
+> (`useFetch`) was left open on purpose after Phase 2 pending the real
+> consumer this phase built. The `C-08` bonus was the same kind of gap as
+> W2-D1-05/06: `useLocalStorage` (Phase 2) already calls `useDebugValue` and
+> its own header already named C-08, but the matrix row was never updated to
+> match. See "Still unchecked after Phase 3" below for what is left.
 
 Final check before the review: open the app, click every route, and confirm each
 row's file is actually reached. A row whose code exists but is never rendered
@@ -231,3 +247,37 @@ rows later phases own.
 Every row in Phase 2's own target list (W1-01…14, W3-D1-01…06, W3-D2-02…07,
 C-03, C-11) closed except W3-D2-04, which was excluded on purpose — see above.
 Everything else unchecked belongs to a later phase per `docs/phase-prompts.md`.
+
+---
+
+## Still unchecked after Phase 3
+
+19 rows, grouped by section:
+
+- **W3-D3 (5):** W3-D3-01 through W3-D3-05 — route-level and component-level
+  `React.lazy`, per-route `<Suspense>`, skeleton UI, hover/focus preloading.
+  Nothing is code-split yet; every route import in `App.tsx` is still static.
+- **W3-D4 (3 of 6):** W3-D4-01, W3-D4-02, W3-D4-03 — the class-component error
+  boundary, its key-bump retry, and the scoped widget-level boundary. (The
+  other three rows in this section — W3-D4-04, 05, 06 — closed this phase via
+  `StickyPremiumSummary` and `Modal`.) There is no boundary anywhere in the
+  tree yet, so `api.ts`'s `fetchRiskFeed` — built in Phase 0 specifically for
+  this — still has no consumer.
+- **W3-D5 (5):** W3-D5-01 through W3-D5-05 — the `use()` hook reading
+  `getPolicyResource`'s cached promise, `use()` reading Context in a
+  conditional branch, Suspense + ErrorBoundary together over a rejected
+  promise, and refactoring the existing routes to lazy-load. `PolicyDetailPage`
+  and its tabs still read straight from the synchronous in-memory index
+  (`policiesById` etc.), not from `api.ts`'s promise-cache layer.
+- **Completeness tier (6):** C-02, C-04, C-05, C-06, C-07, C-12 —
+  `useTransition` (policy-book tab switching), `useSyncExternalStore`
+  (online/offline banner), `useOptimistic` (claim submitted-then-reconciled),
+  `useActionState` (claim submit action), `useFormStatus` (submit button),
+  and the render-count write-up in `docs/failure-modes.md` (which does not
+  exist yet — Phase 5 owns it). C-08 closed this phase as a bookkeeping fix —
+  see the audit note above.
+
+Every row in Phase 3's own target list (W2-D1-01…07, W2-D2-01…03, W3-D4-04…06,
+C-01, C-09, C-10) closed, plus the W3-D2-04 and C-08 bonuses described above.
+Everything else unchecked belongs to Phase 4 or Phase 5 per
+`docs/phase-prompts.md`.
