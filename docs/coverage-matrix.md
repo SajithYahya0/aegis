@@ -50,24 +50,24 @@ Legend for **Tier**:
 | W2-D2-01 | `useRef` — DOM node access & focus | R | Autofocus first field when claim modal opens | | [ ] |
 | W2-D2-02 | `useRef` — mutable value, no re-render | R | Idle-session timer id + last-activity timestamp | | [ ] |
 | W2-D2-03 | `useRef` — previous-value pattern | R | Premium delta indicator ("was ₹X") | | [ ] |
-| W2-D2-04 | `createContext` + Provider | R | `AuthContext` (current user + role) | | [ ] |
-| W2-D2-05 | `useContext` consumption | R | Role-gated underwriter actions | | [ ] |
-| W2-D2-06 | Context split to limit re-renders (state vs dispatch) | R | `QuoteStateContext` / `QuoteDispatchContext` | | [ ] |
-| W2-D2-07 | Custom hook wrapping context + guard throw | R | `useAuth()` throws outside provider | | [ ] |
-| W2-D3-01 | `useReducer` — actions & dispatch | R | Quote wizard state machine | | [ ] |
-| W2-D3-02 | Reducer purity / immutable returns | R | Registered lab defect: mutating draft state | | [ ] |
-| W2-D3-03 | `useReducer` lazy init (third arg) | R | Rehydrate quote draft from localStorage | | [ ] |
-| W2-D3-04 | `useReducer` + Context as lightweight global state | R | Quote provider consumed across wizard steps | | [ ] |
+| W2-D2-04 | `createContext` + Provider | R | `AuthContext` (current user + role) | `src/shared/store/AuthContext.tsx` — `AuthProvider` | [x] |
+| W2-D2-05 | `useContext` consumption | R | Role-gated underwriter actions | `src/shared/routes/RequireRole.tsx` — `RequireRole` (`useAuth()`) | [x] |
+| W2-D2-06 | Context split to limit re-renders (state vs dispatch) | R | `QuoteStateContext` / `QuoteDispatchContext` | `src/shared/store/QuoteContext.tsx` — `QuoteStateContext`, `QuoteDispatchContext` | [x] |
+| W2-D2-07 | Custom hook wrapping context + guard throw | R | `useAuth()` throws outside provider | `src/shared/store/AuthContext.tsx` — `useAuth` | [x] |
+| W2-D3-01 | `useReducer` — actions & dispatch | R | Quote wizard state machine | `src/shared/store/QuoteContext.tsx` — `quoteReducer` | [x] |
+| W2-D3-02 | Reducer purity / immutable returns | R | Registered lab defect: mutating draft state | `src/shared/store/QuoteContext.tsx` — `quoteReducer` (`ADD_INSURED`, gated by `mutating-reducer`) | [x] |
+| W2-D3-03 | `useReducer` lazy init (third arg) | R | Rehydrate quote draft from localStorage | `src/shared/store/QuoteContext.tsx` — `initQuoteDraft` | [x] |
+| W2-D3-04 | `useReducer` + Context as lightweight global state | R | Quote provider consumed across wizard steps | `src/shared/store/QuoteContext.tsx` — `QuoteProvider`, consumed by `src/routes/QuoteWizardPage.tsx` | [x] |
 | W2-D4-01 | `BrowserRouter` setup | R | `main.tsx` | `src/main.tsx` — `<BrowserRouter>` wrapping `<App/>` inside `<StrictMode>` in the `createRoot(...).render` call | [x] |
-| W2-D4-02 | `Routes` / `Route` / index route | R | `App.tsx` | | [ ] |
-| W2-D4-03 | Nested routes + `<Outlet>` | R | `/policies/:id` → Coverage \| Claims \| Documents tabs | | [ ] |
-| W2-D4-04 | `<Link>` / `<NavLink>` with active styling | R | Sidebar nav, detail tabs | | [ ] |
-| W2-D4-05 | `useParams` | R | Policy id in detail route | | [ ] |
-| W2-D4-06 | `useNavigate` (incl. `replace`) | R | Redirect after claim submit; unauth redirect | | [ ] |
-| W2-D4-07 | `useSearchParams` — filters in the URL | R | Policy list status/type/query params | | [ ] |
-| W2-D4-08 | `useLocation` | R | Preserve attempted path across login redirect | | [ ] |
-| W2-D4-09 | Protected / private route wrapper | R | `/underwriting` requires underwriter role | | [ ] |
-| W2-D4-10 | 404 catch-all route | R | `*` → `NotFound` | | [ ] |
+| W2-D4-02 | `Routes` / `Route` / index route | R | `App.tsx` | `src/App.tsx` — `App` | [x] |
+| W2-D4-03 | Nested routes + `<Outlet>` | R | `/policies/:id` → Coverage \| Claims \| Documents tabs | `src/routes/PolicyDetailPage.tsx` — `PolicyDetailPage` | [x] |
+| W2-D4-04 | `<Link>` / `<NavLink>` with active styling | R | Sidebar nav, detail tabs | `src/shared/layout/AppLayout.tsx` — `AppLayout` | [x] |
+| W2-D4-05 | `useParams` | R | Policy id in detail route | `src/routes/PolicyDetailPage.tsx` — `PolicyDetailPage` | [x] |
+| W2-D4-06 | `useNavigate` (incl. `replace`) | R | Redirect after claim submit; unauth redirect | `src/shared/routes/RequireRole.tsx` — `RequireRole` | [x] |
+| W2-D4-07 | `useSearchParams` — filters in the URL | R | Policy list status/type/query params | `src/routes/PoliciesPage.tsx` — `PoliciesPage` | [x] |
+| W2-D4-08 | `useLocation` | R | Preserve attempted path across login redirect | `src/shared/routes/RequireRole.tsx` — `RequireRole` (writes), `src/routes/DashboardPage.tsx` — `DashboardPage` (reads) | [x] |
+| W2-D4-09 | Protected / private route wrapper | R | `/underwriting` requires underwriter role | `src/shared/routes/RequireRole.tsx` — `RequireRole` | [x] |
+| W2-D4-10 | 404 catch-all route | R | `*` → `NotFound` | `src/routes/NotFoundPage.tsx` — `NotFoundPage` | [x] |
 
 ---
 
@@ -78,10 +78,10 @@ Legend for **Tier**:
 | W3-D1-01 | `React.memo` | R | `PolicyRow` — measured with render logs | | [ ] |
 | W3-D1-02 | `React.memo` with custom comparator | R | `PremiumBadge` comparing formatted value | | [ ] |
 | W3-D1-03 | `useMemo` — genuinely expensive computation | R | Premium rating engine over full policy book | | [ ] |
-| W3-D1-04 | `useMemo` — referential stability of context value | R | Auth + quote provider values | | [ ] |
+| W3-D1-04 | `useMemo` — referential stability of context value | R | Auth + quote provider values | `src/shared/store/AuthContext.tsx` — `AuthProvider` | [x] |
 | W3-D1-05 | `useCallback` — stable handler into memo child | R | `onSelect` passed to `PolicyRow` | | [ ] |
 | W3-D1-06 | When NOT to optimise (documented counter-example) | R | `docs/failure-modes.md` + header note on a deliberately un-memoised leaf | | [ ] |
-| W3-D2-01 | Rules of hooks (violation demonstrated) | R | Registered lab defect: conditional hook call | | [ ] |
+| W3-D2-01 | Rules of hooks (violation demonstrated) | R | Registered lab defect: conditional hook call | `src/shared/labs/ConditionalHookDemo.tsx` — `ConditionalHookDemo` | [x] |
 | W3-D2-02 | Custom hook — `useLocalStorage` | R | Claim draft autosave | | [ ] |
 | W3-D2-03 | Custom hook — `useDebounce` | R | Policy search input | | [ ] |
 | W3-D2-04 | Custom hook — `useFetch` | R | Claims history loader | | [ ] |
@@ -140,23 +140,58 @@ from a route the user can click to. Later phases claim them.
 | `src/shared/api.ts` | Abortable `fetch*` path **and** `getPolicyResource` cached-promise path; `fetchRiskFeed` always rejects | W2-D1-01…03 and W3-D5-01…04, once a route consumes them |
 | `src/shared/format.ts` | Cached `Intl` formatters | W3-D1-02, once `PremiumBadge`'s comparator compares formatted output |
 | `src/styles/global.css` | Reset + tokens; CSS Module conventions documented | W1-12, once a module composes a conditional status class |
-| `src/App.tsx` | Phase 0 boot shell — **replaced** by the route table in Phase 1 | never; it is scaffolding |
-
-The `useMemo` in the Phase 0 boot shell is **not** W3-D1-03. That row needs a
-keystroke to make the cost observable, and it belongs to /policies in Phase 2.
+The Phase 0 boot shell's `useMemo` around `rateBook` is **not** W3-D1-03. That
+row needs a keystroke to make the cost observable, and it belongs to
+/policies in Phase 2. `src/App.tsx` itself no longer belongs in this table —
+Phase 1 replaced its body with the route table and it now claims W2-D4-02
+directly (see the Week 2 section above).
 
 ---
 
 ## Audit
 
-Total rows: **83**. Complete: **1**. Remaining: **82**.
+Total rows: **83**. Complete: **20**. Remaining: **63**.
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
 > D4 10), W3 29 (D1 6, D2 7, D3 5, D4 6, D5 5), completeness tier 12 — 83.
 > The five-row discrepancy mattered: a phase that closed out "78 of 78" would
 > have declared full coverage with five concepts still missing.
+>
+> Phase 1 closed 19 rows: W2-D2-04 through W2-D2-07, W2-D3-01 through
+> W2-D3-04, W2-D4-02 through W2-D4-10 (W2-D4-01 was already done in Phase 0),
+> W3-D1-04, W3-D2-01. See "Still unchecked after Phase 1" below for what is
+> deliberately not claimed yet.
 
 Final check before the review: open the app, click every route, and confirm each
 row's file is actually reached. A row whose code exists but is never rendered
 does not count.
+
+---
+
+## Still unchecked after Phase 1
+
+63 rows, grouped by section:
+
+- **W1 (14):** W1-01 through W1-14 — the whole fundamentals section. `/policies`
+  is real enough to click through, but the list is unmemoised, unfiltered by
+  anything beyond three plain controls, and has no `<Panel>` composition yet.
+- **W2-D1 (7):** W2-D1-01 through W2-D1-07 — every effect-lifecycle row. The
+  Claims and Documents tabs read straight from the in-memory index; there is no
+  fetch, no abort, no interval yet, so none of these can be claimed honestly.
+- **W2-D2 (3):** W2-D2-01, W2-D2-02, W2-D2-03 — the `useRef` trio. Nothing in
+  Phase 1 needed a DOM ref, a mutable-without-render value, or a previous-value
+  pattern.
+- **W3-D1 (5):** W3-D1-01, 02, 03, 05, 06 — `React.memo`, its custom comparator,
+  the expensive `useMemo` over `rateBook`, `useCallback`, and the deliberate
+  non-optimisation. `PoliciesPage` renders a plain array today.
+- **W3-D2 (6):** W3-D2-02 through W3-D2-07 — `useLocalStorage`, `useDebounce`,
+  `useFetch`, `usePolicyFilters`, and both hook/component tests.
+- **W3-D3 (5), W3-D4 (6), W3-D5 (5):** all of lazy loading, error boundaries,
+  and Suspense-for-data. Nothing is code-split yet and there is no boundary
+  anywhere in the tree.
+- **Completeness tier (12):** C-01 through C-12 — none attempted yet.
+
+None of these are gaps in Phase 1's own target list (W2-D2-04…W2-D3-04,
+W2-D4-01…10, W3-D1-04, W3-D2-01) — that list closed in full. They are the
+rows later phases own.

@@ -1,0 +1,50 @@
+.wizard {
+  max-width: 720px;
+}
+
+.steps {
+  display: flex;
+  gap: var(--s-2);
+  margin-bottom: var(--s-5);
+  border-bottom: 1px solid var(--c-border);
+  padding-bottom: var(--s-3);
+}
+
+.step {
+  padding: var(--s-1) var(--s-3);
+  border-radius: var(--radius);
+  color: var(--c-text-faint);
+  font-size: var(--fs-sm);
+}
+
+.stepActive {
+  composes: step;
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin-bottom: var(--s-3);
+}
+
+.field label {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.insuredRow {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin-bottom: var(--s-2);
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--s-5);
+}

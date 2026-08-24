@@ -1,0 +1,65 @@
+.panel {
+  border: 1px solid var(--c-status-pending);
+  background: var(--c-status-pending-soft);
+  border-radius: var(--radius);
+  margin: var(--s-4);
+}
+
+.summary {
+  padding: var(--s-3) var(--s-4);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--c-status-pending);
+  cursor: pointer;
+}
+
+.body {
+  padding: 0 var(--s-4) var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.defect {
+  border-top: 1px solid var(--c-border);
+  padding-top: var(--s-3);
+}
+
+.defectHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.defectTitle {
+  font-weight: 600;
+}
+
+.matrixId {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+.summaryText {
+  color: var(--c-text-muted);
+  margin-top: var(--s-1);
+}
+
+.symptom {
+  color: var(--c-text-muted);
+  margin-top: var(--s-1);
+  font-style: italic;
+}
+
+.sandbox {
+  margin-top: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  background: var(--c-surface);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
