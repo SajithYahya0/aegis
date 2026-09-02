@@ -114,7 +114,7 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W3-D4-01 | Error Boundary class component | R | `ErrorBoundary.tsx` — `getDerivedStateFromError` + `componentDidCatch` | `src/shared/components/ErrorBoundary.tsx` — `ErrorBoundary`; tested in `src/shared/components/ErrorBoundary.test.tsx` | [x] |
 | W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | `src/shared/components/ErrorBoundary.tsx` — `handleRetry` + `<Fragment key={attempt}>`, paired with `onRetry` at every call site. **Was measurably false, now repaired** — this row was flagged for downgrade and instead fixed, because the fix was available. The old claim was that the `key` bump clears `React.lazy`'s memoised rejection; it does not (a probe recorded one import attempt before Retry and one after), so `App.tsx`'s route-level Retry could never recover a failed chunk and `ClaimIntakePage`'s had the same hole. Fixed by `splitChunk().reset()` in `src/shared/routes/lazyRoutes.tsx`, wired through `App.tsx`'s `BoundedRoute` and `ClaimIntakePage`. Now three mechanisms, all tested: the remount and the eviction ordering in `ErrorBoundary.test.tsx`, the lazy reset in `src/shared/routes/lazyRoutes.test.tsx` — including a negative test that fails if remounting ever starts recovering on its own. `ErrorBoundary.tsx`'s header carries the correction | [x] |
 | W3-D4-03 | Scoped boundary — widget fails, page survives | R | Claims widget throws; policy detail still renders | `src/routes/policyDetail/RiskExposureWidget.tsx` — `RiskExposurePanel`, wired to `api.ts`'s always-rejecting `fetchRiskFeed` behind the `risk-feed-outage` lab toggle. **Deliberate deviation:** the failing widget is the risk feed, not the Claims tab. Making Claims the one that throws would mean converting it from the `useFetch` + `AbortController` path to the `use()` + Suspense path, and CLAUDE.md requires both paths to exist *and* to be contrastable — they now sit on the same page, one tab apart. `fetchRiskFeed` was built in Phase 0 for exactly this row (see its header) | [x] |
-| W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | `src/routes/quoteWizard/StickyPremiumSummary.tsx` — `StickyPremiumSummary`, toggled by the `layout-effect-flicker` lab defect (`src/shared/labs/registry.ts`). **Qualified — the flicker is no longer shown:** the mechanism is correct and both branches still run, but the bar was moved from `position: fixed` to `position: sticky` on product feedback (it should travel with the wizard and pin on arrival, not hang over it). `top` on a sticky element is a scroll-triggered clamp, and this four-step wizard never scrolls far enough to reach it, so the measured-vs-fallback difference lands in `dockTop` but is never drawn — both branches paint the bar at the same in-flow position. What still demonstrates the row is the console: the `before paint` / `after paint` tag on each log line, which is the guarantee itself rather than a proxy for it. Deliberately **not** fixed by reverting the CSS to suit the demo; see [Known weak claims](#known-weak-claims) | [~] |
+| W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | **Not built — the concept has no home in this app.** `useLayoutEffect` no longer appears anywhere under `src/`. It lived in `src/routes/quoteWizard/StickyPremiumSummary.tsx`, measuring the wizard header so the bar could dock beneath it, and it was load-bearing while the bar was `position: fixed` — there `top` is where the element is *drawn*. When the bar moved into normal flow as `position: sticky`, `top` stopped meaning that and started meaning the viewport offset the bar clamps at while pinned; the measured header bottom (~200px) pinned the bar a fifth of the way down the screen, on top of the fields scrolling under it. The correct sticky offset is a design constant the stylesheet states directly, so the measurement, `dockTop`, `FALLBACK_TOP_PX`, both effect branches and the `layout-effect-flicker` lab defect were all computing a value nothing could read, and all of them were deleted rather than left in the tree as dead code. **No contrived replacement was invented.** There is no other place in this app where a component must read a rendered dimension before paint, and building one — a measured tooltip, a synthetic panel in `labs/` — would be a component that exists for the matrix rather than for the app, which `CLAUDE.md` ranks as worse than an honest gap. See [Known weak claims](#known-weak-claims) | [ ] |
 | W3-D4-05 | `forwardRef` | R | `Modal`, `TextField` | `src/shared/components/Modal.tsx` — `Modal` (`TextField` deliberately does not need `forwardRef` — see its own header; nothing in the app grabs its DOM node directly, `Modal`'s generic `querySelectorAll` focus search covers it) | [x] |
 | W3-D4-06 | `useImperativeHandle` — exposed API | R | `modalRef.current.open()/close()/focusFirst()` | `src/shared/components/Modal.tsx` — `Modal`, consumed via `modalRef` in `src/routes/policyDetail/PolicyClaimsTab.tsx` | [x] |
 | W3-D5-01 | `use()` — unwrapping a promise | R | Policy detail data | `src/routes/policyDetail/PolicySummaryCard.tsx` — `PolicySummaryCard` (`use(getPolicyResource(policyId))`, no loading/error state of its own) | [x] |
@@ -132,7 +132,7 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | C-01 | `useId` | C | Repeated insured-party fieldsets — label/input pairing | `src/shared/components/TextField.tsx` — `TextField`, used per-row in the insured-party fieldset in `src/routes/QuoteWizardPage.tsx`'s `ApplicantStep` | [x] |
 | C-02 | `useTransition` | C | Switching policy-book tabs without blocking input | `src/routes/PoliciesPage.tsx` — `handleViewChange` (`useTransition`), with `isPending` surfaced by `src/routes/policies/PolicyBookTabs.tsx` and the view whose render cost justifies it in `src/routes/policies/ExposureByCustomer.tsx` | [x] |
 | C-03 | `useDeferredValue` | C | Large filtered list lags behind search box | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` (`deferredQuery`) | [x] |
-| C-04 | `useSyncExternalStore` | C | Online/offline sync banner | `src/shared/components/ConnectivityBanner.tsx` — `ConnectivityBanner` (module-level `subscribe`/`getSnapshot`/`getServerSnapshot`, read with `useSyncExternalStore` in the component), mounted once in `src/shared/layout/AppLayout.tsx` so it is reachable from every route. **On `labs/registry.ts`:** that module is exactly as legitimate a candidate for this row as `window`'s `online`/`offline` events — plain module state with a `subscribe`/`notify` pair, external to React, read via `useLabFlag`'s own `useState` + `useEffect` bridge instead of `useSyncExternalStore`. It is deliberately left alone rather than rewritten to claim this row, for two reasons. First, the named feature this row asks for is the connectivity banner specifically (see "Feature that forces it" above), and `ConnectivityBanner` already builds that honestly — rewriting `useLabFlag` in addition would be a second, redundant claim on the same row, not a stronger one. Second, `useLabFlag` is working infrastructure that five other lab defects (`W2-D1-05`, `W2-D1-06`, `W2-D3-02`, `W3-D2-01`, `W3-D4-04`, `W3-D4-03`) and the C-05 toggle all depend on; changing it now would be a rewrite made for the matrix's benefit rather than the app's, which CLAUDE.md rules out ("a contrived usage is worse than an honest gap"). `useLabFlag`'s own header already documents why it exists as a `useState`+`useEffect` bridge rather than `useSyncExternalStore`. | [x] |
+| C-04 | `useSyncExternalStore` | C | Online/offline sync banner | `src/shared/components/ConnectivityBanner.tsx` — `ConnectivityBanner` (module-level `subscribe`/`getSnapshot`/`getServerSnapshot`, read with `useSyncExternalStore` in the component), mounted once in `src/shared/layout/AppLayout.tsx` so it is reachable from every route. **On `labs/registry.ts`:** that module is exactly as legitimate a candidate for this row as `window`'s `online`/`offline` events — plain module state with a `subscribe`/`notify` pair, external to React, read via `useLabFlag`'s own `useState` + `useEffect` bridge instead of `useSyncExternalStore`. It is deliberately left alone rather than rewritten to claim this row, for two reasons. First, the named feature this row asks for is the connectivity banner specifically (see "Feature that forces it" above), and `ConnectivityBanner` already builds that honestly — rewriting `useLabFlag` in addition would be a second, redundant claim on the same row, not a stronger one. Second, `useLabFlag` is working infrastructure that five other lab defects (`W2-D1-05`, `W2-D1-06`, `W2-D3-02`, `W3-D2-01`, `W3-D4-03`) and the C-05 toggle all depend on (a fifth, `W3-D4-04`, was deregistered when its host code was deleted); changing it now would be a rewrite made for the matrix's benefit rather than the app's, which CLAUDE.md rules out ("a contrived usage is worse than an honest gap"). `useLabFlag`'s own header already documents why it exists as a `useState`+`useEffect` bridge rather than `useSyncExternalStore`. | [x] |
 | C-05 | `useOptimistic` | C | Claim status flips to "Submitting" before server confirms | `src/routes/policyDetail/PolicyClaimsTab.tsx` — `PolicyClaimsTab` (`useOptimistic` wraps `claims`; `addOptimisticClaim` called from `handleLogClaim` before `submitClaim` resolves). Forced-failure lab toggle: `claim-submit-failure` in `src/shared/labs/registry.ts`, read via `isLabEnabled` at submit time. **Deliberately not in `ClaimIntakeWizard`**, even though an earlier header in that file grouped all three React 19 form hooks together — see that file's current header for why: `useOptimistic` needs a list already on screen to show a pending entry in, and the wizard is a modal with no list, while `PolicyClaimsTab` has the real claims table sitting right there. | [x] |
 | C-06 | `useActionState` | C | Claim submit action with returned error state | `src/routes/claimIntake/ClaimIntakeWizard.tsx` — `ClaimIntakeWizard` (review step's `<form action={submitAction}>`; validation-ahead-of-submit, so the returned state carries the async write's own error) **and** `src/routes/policyDetail/PolicyClaimsTab.tsx` — `ClaimForm` (single-step form; the action reads `amount`/`description` straight from `FormData` and returns real per-field errors, rendered through `TextField`'s existing `error` prop). Two call sites on purpose: the wizard shows the "validate ahead, one error slot" shape, the quick-claim form shows the "validate from FormData, per-field errors" shape — the same hook used two genuinely different ways rather than one usage copy-pasted twice. | [x] |
 | C-07 | `useFormStatus` (react-dom) | C | Submit button disabled/pending inside the form | `src/shared/components/SubmitButton.tsx` — `SubmitButton`. **Qualified — one of the two call sites is unobservable.** `ClaimIntakeWizard` (review step) is the real one: `ClaimIntakePage.handleSubmit` awaits `submitClaim` *before* closing the modal, so the wizard stays mounted for the full 400–900ms round trip and `SubmitButton`/`WizardNavButton` genuinely render their pending state. `PolicyClaimsTab`'s `ClaimForm` does not: `handleLogClaim` calls `modalRef.current?.close()` on its first line, before the `await`, so the whole `<form>` — `SubmitButton` and `FormCancelButton` with it — unmounts before `pending` can ever render. Not "fixed" by reordering: closing immediately is the correct UX there, because the optimistic row in the table below (C-05) *is* the feedback and a lingering modal would cover it. The two features are in genuine tension and the hook loses; that is recorded rather than papered over | [~] |
@@ -168,7 +168,7 @@ directly (see the Week 2 section above).
 
 ## Known weak claims
 
-**Total rows: 83. Solid `[x]`: 77. Qualified `[~]`: 6. Not built: 0.**
+**Total rows: 83. Solid `[x]`: 77. Qualified `[~]`: 5. Not built `[ ]`: 1.**
 
 The previous line here read "Complete: 83. Remaining: 0", and that number was
 defensible only against criteria that turned out to be too weak. A post-Phase-5
@@ -181,14 +181,34 @@ Four are correct code whose effect is unobservable in this app; the fifth is a
 concept the app has no honest home for. `CLAUDE.md` ranks a contrived usage as
 worse than an honest gap, so **inert is recorded as inert**.
 
-A **sixth** row joined them later, and it arrived differently from the other
-five. W3-D4-04 was genuinely solid when it was written; it was downgraded when
-a product change to `StickyPremiumSummary`'s positioning took its observable
-away. That is worth separating out, because it is the case this table will keep
-seeing: not a row that was never really demonstrated, but a row whose demo was
-collateral damage from a change the app wanted for its own reasons. The rule
-applied is the same one — the layout stays as the product asked, the row goes
-to `[~]`, and the demo is not restored by bending the CSS back.
+A **sixth** row joined them later and has since gone further than any of the
+five. W3-D4-04 was genuinely solid when it was written. A product change to
+`StickyPremiumSummary`'s positioning took its *observable* away, and it went to
+`[~]`; a follow-up change took the *code* away, and it is now `[ ]` — the only
+unbuilt row in the file. That progression is worth keeping visible, because it
+is the case this table will keep seeing: not a row that was never really
+demonstrated, but a row whose demo was collateral damage from changes the app
+wanted for its own reasons.
+
+The second step is the one worth defending. Moving the bar to `position:
+sticky` did not merely make the measurement invisible — it made it *wrong*.
+Under `fixed`, `top` is where the element is drawn, so the measured header
+bottom put the bar directly beneath the header. Under `sticky`, `top` is the
+viewport offset the element clamps at while pinned, so that same ~200px pinned
+the bar a fifth of the way down the screen and over the fields scrolling
+beneath it. Once the inline `style={{ top }}` came off and the offset moved
+into the stylesheet where it belongs, `dockTop`, `FALLBACK_TOP_PX`,
+`measure()`, the `useLayoutEffect`/`useEffect` pair and the
+`layout-effect-flicker` lab defect were all computing a number nothing could
+read. `CLAUDE.md` does not permit that to sit in the tree as dead code
+wearing a demo's clothes, so it was deleted and the lab defect deregistered.
+
+`useLayoutEffect` therefore appears nowhere in shipped code, and **no
+contrived replacement was invented**. There is no other place in this app
+where something must read a rendered dimension before paint; building one — a
+measured tooltip, a synthetic `labs/` panel — would be a component that exists
+for this file rather than for the app. That is the trade `CLAUDE.md` names
+explicitly, and an honest `[ ]` is the side of it this repo takes.
 
 | ID | Concept | Why it is qualified | What would make it `[x]` |
 |---|---|---|---|
@@ -196,7 +216,7 @@ to `[~]`, and the demo is not restored by bending the CSS back.
 | W2-D2-06 | Split context | No dispatch-only consumer exists; all five wizard steps read both, via `useQuote()`. Even one would re-render anyway, because `QuoteWizardPage` reads state and renders the steps as children. | `React.memo` on the step components **and** a step that genuinely needs dispatch without state. Neither is wanted by the wizard as designed. |
 | W3-D1-04 | `useMemo` on a context value | `role` is `AuthProvider`'s only state and nothing above it re-renders, so the provider re-renders exactly when the value must change. The bail-out branch is unreachable. | A second piece of state in `AuthProvider`, or an ancestor that re-renders. Both would be invented for the matrix. |
 | C-07 | `useFormStatus` | Real in `ClaimIntakeWizard`. Unobservable in `PolicyClaimsTab`'s `ClaimForm`: `handleLogClaim` closes the modal before its `await`, unmounting the form before `pending` can render. | Keeping the modal open until the action settles — which would cover the optimistic row (C-05) that is the actual feedback. The two features are in real tension; the hook loses. |
-| W3-D4-04 | `useLayoutEffect` vs `useEffect` | The measurement, both effect branches and the `before paint` / `after paint` logs are all real and all still run. What is gone is the *visible* flicker: `.bar` moved from `position: fixed` to `position: sticky` so it scrolls with the wizard, and a sticky element's `top` is a scroll-triggered clamp this four-step wizard never scrolls far enough to trigger. A Playwright probe against the earlier sticky version recorded identical rendered rects with the toggle on and off, even though the two `top` values differed. | Enough content below the bar that the page actually scrolls past the dock offset — then `top` engages and the two branches diverge on screen again. A wizard step long enough to force that is a feature the quote flow does not want. Reverting to `fixed` would also do it, and is refused: it undoes the behaviour product asked for in order to make a demo look better. |
+| W3-D4-04 | `useLayoutEffect` vs `useEffect` | **Not built.** The concept lost its home when the premium bar moved into normal flow: under `position: sticky` the measured offset was not just unobservable but actively wrong, so the measurement and both effect branches were deleted rather than kept as dead code. `useLayoutEffect` appears nowhere under `src/`. | A feature that genuinely must read a rendered dimension before paint — a tooltip or popover positioned against its anchor, a virtualised list measuring row heights. This app has none, and adding one to carry the row would be a component built for the matrix. Recorded as a gap instead. |
 | W2-D1-01 | Mount-only fetch (`[]` deps) | No `[]`-deps *fetch* exists. `useFetch`'s `[policyId]` effect runs once on mount, but that is an argument for not building the row, not a demonstration of it. | A feature that genuinely fetches once and never refetches. Adding one to `PolicyClaimsTab` would ship the stale-data bug `useFetch` exists to prevent. |
 
 ### Repaired rather than downgraded
@@ -227,7 +247,7 @@ held its interval id in a ref where the effect's own closure already sufficed.
 
 ## Audit
 
-Total rows: **83**. Solid: **77**. Qualified: **6**. Remaining: **0**.
+Total rows: **83**. Solid: **77**. Qualified: **5**. Not built: **1** (W3-D4-04 — see [Known weak claims](#known-weak-claims)).
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -335,11 +355,14 @@ Total rows: **83**. Solid: **77**. Qualified: **6**. Remaining: **0**.
 
 ## Still unchecked after Phase 5
 
-**None unbuilt** — but see [Known weak claims](#known-weak-claims), added after
-this section was written. Six of the 83 are now `[~]` rather than `[x]` — five
-found by that audit, and W3-D4-04 downgraded later when the premium bar was
-changed from `position: fixed` to `position: sticky` and the visible flicker
-went with it.
+**One unbuilt, five qualified** — see [Known weak claims](#known-weak-claims),
+added after this section was written. Of the 83 rows, 77 are `[x]`, five are
+`[~]` (found by that audit), and one — W3-D4-04 — is `[ ]`. That row went to
+`[~]` when the premium bar changed from `position: fixed` to `position:
+sticky` and the visible flicker went with it, then to `[ ]` when the inline
+`top` came off the bar entirely and the measurement, both effect branches and
+the `layout-effect-flicker` lab defect were deleted rather than left computing
+a value nothing reads. `useLayoutEffect` is no longer in the app.
 
 The audit below was run against the criteria in force at the time: does the
 named file exist, does it export what the row claims, is it reachable from a

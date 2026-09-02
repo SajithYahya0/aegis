@@ -3,10 +3,14 @@
 }
 
 /*
- * Sticky and pinned to the very top of the scroll area, so its rendered
- * height is exactly what `StickyPremiumSummary` measures to dock itself
- * directly beneath — see that component's header for why the offset is
- * measured rather than hard-coded.
+ * Sticky and pinned to the very top of the scroll area, so the title and the
+ * step rail stay legible while the agent works down a step.
+ *
+ * The gap below the rule is `padding-bottom` here rather than `margin-bottom`
+ * on `.steps`. A last child's bottom margin collapses *out* through this box,
+ * so the gap it made sat outside the header's painted background and content
+ * scrolled visibly through the band before disappearing under the header.
+ * Padding keeps the gap inside the paint.
  */
 .wizardHeader {
   position: sticky;
@@ -14,12 +18,12 @@
   z-index: 11;
   background: var(--c-bg);
   padding-top: var(--s-1);
+  padding-bottom: var(--s-3);
 }
 
 .steps {
   display: flex;
   gap: var(--s-2);
-  margin-bottom: var(--s-5);
   border-bottom: 1px solid var(--c-border);
   padding-bottom: var(--s-3);
 }
@@ -38,11 +42,35 @@
   font-weight: 600;
 }
 
+/*
+ * One step's fields. The vertical rhythm is a `gap` rather than a margin on
+ * each field, because half the controls on these steps are now `<TextField>`s
+ * whose wrapper comes from `TextField.module.css` — a margin this file cannot
+ * reach without either duplicating the rule there (where it would hit every
+ * other caller) or reaching across the module boundary. A gap on the
+ * container spaces both kinds of child the same, whoever styles them.
+ */
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+/*
+ * "Add insured party" and "Start over" are direct flex children, and a flex
+ * item stretches across the cross axis by default — without this they would
+ * become full-width bars the width of the wizard column. Child combinator on
+ * purpose: the "Remove" button inside `.insuredRow` is aligned by that row's
+ * own `align-items`, and must not be overridden here.
+ */
+.stepBody > button {
+  align-self: flex-start;
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--s-1);
-  margin-bottom: var(--s-3);
 }
 
 .field label {
@@ -54,7 +82,20 @@
   display: flex;
   gap: var(--s-2);
   align-items: flex-end;
-  margin-bottom: var(--s-2);
+}
+
+/*
+ * The step-transition error from `WizardNav`'s `validateStep`. Matches
+ * `ClaimIntakeWizard.module.css`'s `.error` — the two wizards refuse to
+ * advance for the same kind of reason and should say so the same way.
+ */
+.error {
+  color: var(--c-danger);
+  background: var(--c-danger-soft);
+  border-radius: var(--radius);
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-sm);
+  margin-top: var(--s-4);
 }
 
 .actions {

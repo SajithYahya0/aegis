@@ -533,7 +533,7 @@
 
 <!-- ============================ STOP 5 ============================ -->
 <section class="stop" id="s5">
-  <h2><span class="n">5</span><span class="route">/quote</span><span class="what">Quote wizard. Four steps, one reducer, a sticky premium bar that measures its own dock position. All of Week 2 day 3 lives here.</span><span class="caret"></span></h2>
+  <h2><span class="n">5</span><span class="route">/quote</span><span class="what">Quote wizard. Four steps, one reducer, per-step validation, a sticky premium bar that updates as you type. All of Week 2 day 3 lives here.</span><span class="caret"></span></h2>
   <div class="body">
     <div class="do"><b>CLICK</b>
       <ol>
@@ -542,7 +542,7 @@
         <li><code>Next</code> → Risk. Change <em>Sum insured</em>. The sticky bar's premium changes <b style="display:inline">in the same frame</b> and shows <code>▲ was ₹…</code>.</li>
         <li><code>Next</code> → Coverage, tick two optional riders. Watch the premium move again.</li>
         <li><code>Next</code> → Review. Now <b style="display:inline">refresh the browser</b>. You come back on Review with everything intact.</li>
-        <li>Lab panel → tick <code>useEffect instead of useLayoutEffect…</code>, then reload /quote — the premium bar starts at the top of the page and jumps down a frame later.</li>
+        <li>Back to Applicant, clear <em>City</em>, press <code>Next</code> — it refuses and names the field. Clear a party's <em>Full name</em>, press <code>Next</code> — it names that party by number. Point at the red <code>*</code> markers: the rule is stated before you press, not after.</li>
         <li>Lab panel → tick <code>Mutating reducer state</code> → Applicant → <code>Add insured party</code> → nothing happens → click Next then Back → <b style="display:inline">two</b> rows appear.</li>
       </ol>
     </div>
@@ -584,10 +584,15 @@
           <td class="con"><span class="cid">W2-D2-03</span></td>
           <td class="file"><span class="path">src/shared/hooks/usePrevious.ts — <span class="ex">usePrevious</span> <span class="ln">(L26)</span></span><span class="path">src/routes/quoteWizard/StickyPremiumSummary.tsx — <span class="ex">previousPremium</span> <span class="ln">(L73)</span></span></td>
         </tr>
-        <tr data-s="W3-D4-04 qualified useLayoutEffect vs useEffect sticky premium bar measurement before paint after paint console tag">
-          <td class="say">I implemented the dock measurement in <code>useLayoutEffect</code> so it lands before paint, otherwise the browser paints once at the fallback offset and a passive effect corrects it only afterwards. Qualified, and I will raise it myself: you will not see it move. The bar is <code>position: sticky</code> because product wanted it to travel with the wizard, and a sticky <code>top</code> is a scroll-triggered clamp this short wizard never reaches — so read the two console tags below, not the screen. I downgraded the row rather than reverting the CSS to make the demo look better.</td>
-          <td class="con"><span class="cid q">W3-D4-04 [~]</span></td>
-          <td class="file"><span class="path">src/routes/quoteWizard/StickyPremiumSummary.tsx — <span class="ex">StickyPremiumSummary</span> <span class="ln">(L70)</span></span></td>
+        <tr data-s="W3-D4-04 not built useLayoutEffect gap deleted sticky top pin offset honest gap volunteer">
+          <td class="say">Raise this one yourself, here, before he asks. <code>useLayoutEffect</code> is the one concept in the curriculum I did not ship. It was in this component — measuring the header so the bar could dock under it — and it was right while the bar was <code>position: fixed</code>, where <code>top</code> is where the element gets drawn. Product wanted the bar to travel with the wizard, so it became <code>sticky</code>, where <code>top</code> means the offset it pins at instead. Feeding that the measured 200px pinned the bar a fifth of the way down the screen, on top of the fields. So the offset moved into CSS, and the measurement, both effect branches and the lab toggle came out rather than sit there computing a number nothing reads. I did not build a tooltip or a fake panel to keep the row — nothing in this app needs a rendered dimension before paint, and inventing something that does is worse than the gap. The row is <code>[ ]</code> in the matrix with that written out.</td>
+          <td class="con"><span class="cid q">W3-D4-04 [ ]</span></td>
+          <td class="file"><span class="path">docs/coverage-matrix.md — <span class="ex">Known weak claims</span></span></td>
+        </tr>
+        <tr data-s="validation quote wizard step gate validateStep required marker aria-required blank draft localStorage">
+          <td class="say">I implemented the step gate the same way the claim wizard does — validate on the transition, name the topmost blank field — otherwise every step advances empty and you reach Review with no city, nobody insured and a premium quoted off a sum insured of zero. There is no submit here to catch it later: the draft is written to <code>localStorage</code> on every dispatch, so a blank quote is <em>saved</em>, not just displayed. The <code>*</code> markers are the other half: <code>required</code> plus <code>aria-required</code> for a screen reader, an <code>aria-hidden</code> glyph for everyone else. If pushed on why the Coverage step has no markers — because declining every optional rider is a real answer, and every policy type already carries a mandatory coverage. I did not invent a rule to give the step something to validate.</td>
+          <td class="con"><span class="cid">W1-11</span> <span class="cid">C-01</span></td>
+          <td class="file"><span class="path">src/routes/QuoteWizardPage.tsx — <span class="ex">validateStep / WizardNav</span></span></td>
         </tr>
         <tr data-s="C-01 useId TextField repeated fieldset insured party duplicate id label focuses wrong input">
           <td class="say">I implemented the field id with <code>useId</code>, otherwise three insured-party rows share one hard-coded id and every label but the first focuses the wrong input — click "Full name" on the third party and the cursor lands in the first.</td>
@@ -601,11 +606,6 @@
         </tr>
       </tbody>
     </table>
-    <div class="console"><b>CONSOLE — only with the layout-effect toggle on</b>
-      <div>[StickyPremiumSummary] useLayoutEffect corrected top: 0px → 118.0px, 0.31ms after commit (before paint)</div>
-      <div>[StickyPremiumSummary] useEffect corrected top: 0px → 118.0px, 17.8ms after commit (after paint — the fallback was already on screen)</div>
-      <div><i>Point at the two parenthetical phrases. That is the whole concept — and since the bar went back to <code>position: sticky</code> it is also the only evidence, because the panel itself does not move. Do not promise a jump.</i></div>
-    </div>
   </div>
 </section>
 
@@ -878,9 +878,9 @@
 
 <!-- ============================ QUALIFIED ============================ -->
 <section class="panel" id="p-qual">
-  <h2><span>⚑ QUALIFIED CLAIMS — RAISE THESE FIRST</span><span class="what">5 of 83 rows are <code>[~]</code>, not <code>[x]</code>. Say them before he finds them; the count is the credibility.</span><span class="caret"></span></h2>
+  <h2><span>⚑ QUALIFIED CLAIMS + THE ONE GAP — RAISE THESE FIRST</span><span class="what">Of 83 rows: 77 <code>[x]</code>, 5 <code>[~]</code>, 1 <code>[ ]</code>. Say them before he finds them; the count is the credibility.</span><span class="caret"></span></h2>
   <div class="body">
-    <p style="color:var(--dim);font-size:15.5px;margin:12px 0 4px">Opening line: <em>"Before you go looking — 78 of 83 rows are solid and five are qualified. I downgraded them myself in an audit after the build was finished, when I stopped asking 'does the file exist and can I click to it' and started asking 'can the mechanism be observed doing anything'. Here they are."</em></p>
+    <p style="color:var(--dim);font-size:15.5px;margin:12px 0 4px">Opening line: <em>"Before you go looking — of 83 rows, 77 are solid, five are qualified and one is not built at all. I downgraded the five myself in an audit after the build was finished, when I stopped asking 'does the file exist and can I click to it' and started asking 'can the mechanism be observed doing anything'. The sixth I deleted, and I will explain why. Here they are."</em></p>
 
     <div class="item">
       <h3><span class="cid q">W3-D1-02</span><span class="t"><code>React.memo</code> with a custom comparator</span></h3>
@@ -915,6 +915,13 @@
       <p><b>BUILT</b> <code>useFetch</code>'s effect keyed on the caller's deps — <code>[policyId]</code> for the claims tab — which does run exactly once on the tab's first mount.</p>
       <p><b>WHY WEAK</b> That is the mount case, but it is an argument for <em>not</em> building the row, not a demonstration of it. No <code>[]</code>-deps <em>fetch</em> exists anywhere in the app.</p>
       <p><b>WHY HONEST</b> Adding one to the claims tab ships the precise bug the hook exists to prevent: Router reuses the tab instance across <code>:id</code> changes, so POL-1's claims would show under every policy forever. <code>[]</code>-deps effects that are not fetches are real and solid — the countdown's interval and the modal's keydown listener.</p>
+    </div>
+
+    <div class="item">
+      <h3><span class="cid q">W3-D4-04</span><span class="t"><code>useLayoutEffect</code> vs <code>useEffect</code> — <b>not built</b>, the only <code>[ ]</code> in the file</span></h3>
+      <p><b>WAS BUILT</b> <code>StickyPremiumSummary</code> measured the quote wizard's header in a <code>useLayoutEffect</code> and fed the result to the bar's <code>top</code>, with a lab toggle that swapped the layout effect for a passive one so the correction landed after paint instead of before it.</p>
+      <p><b>WHY IT WENT</b> Two steps. The bar moved from <code>position: fixed</code> to <code>sticky</code> because product wanted it to travel with the wizard — that alone made the flicker invisible, and the row went to <code>[~]</code>. Then the sharper finding: under <code>fixed</code>, <code>top</code> is where the element is drawn; under <code>sticky</code> it is the viewport offset it pins at. The same measured 200px that used to dock the bar correctly now clamped it a fifth of the way down the screen, over the fields scrolling beneath. The measurement was not just unobservable, it was wrong. The offset moved into CSS as <code>top: var(--s-3)</code>, and the measurement, <code>dockTop</code>, both effect branches and the toggle came out with it.</p>
+      <p><b>WHY HONEST</b> Nothing was built to replace it. The concept needs a component that must read a <em>rendered</em> dimension before the first paint; this app has none — every measurement CSS can do, CSS does. A tooltip nobody asked for, or a synthetic panel in <code>labs/</code>, would be a component that exists for the coverage matrix rather than the app, which <code>CLAUDE.md</code> ranks as worse than an honest gap. <b>Do not offer to revert the CSS to bring the demo back</b> — that is changing real behaviour to flatter a demonstration, which is the same mistake pointing the other way.</p>
     </div>
   </div>
 </section>

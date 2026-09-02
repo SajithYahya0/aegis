@@ -57,11 +57,6 @@ function sandboxFor(id: LabDefectId): ReactElement | null {
       // No inline sandbox: this defect lives in the real QuoteContext
       // reducer so it fires from an actual route (/quote), not a stand-in.
       return null;
-    case 'layout-effect-flicker':
-      // No inline sandbox: this defect lives in the real StickyPremiumSummary
-      // component on /quote, for the same reason — a synthetic panel here
-      // would prove the mechanism but not that it happens live.
-      return null;
     case 'risk-feed-outage':
       // No inline sandbox, and here the reason is stronger than convenience:
       // the whole claim being made is that the failure stays contained to one

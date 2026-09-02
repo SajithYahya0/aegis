@@ -10,16 +10,20 @@
  * had to) would make the bar disagree with the column it sits in the moment
  * the sidebar or page padding changed.
  *
+ * `top` belongs here and nowhere else. Under `sticky` it is not a position,
+ * it is the viewport offset the bar clamps at while pinned — so it wants a
+ * small design constant, not the measured header height the component used
+ * to hand it as an inline style. That value (~200px) clamped the bar a fifth
+ * of the way down the viewport, where it covered the fields scrolling
+ * beneath it. See the component's header for the measurement machinery that
+ * was deleted along with it.
+ *
  * `z-index` stays: sticky creates a stacking context but does not by itself
  * guarantee the bar paints above later siblings it overlaps while pinned.
- *
- * The consequence for the W3-D4-04 demo — that sticky's `top` is a
- * scroll-triggered clamp this short wizard never reaches, so the measured
- * offset is no longer visible on screen — is spelled out in the component's
- * header. It is recorded there and in the matrix rather than worked around.
  */
 .bar {
   position: sticky;
+  top: var(--s-3);
   z-index: 50;
   /* Was the deleted `.spacer`'s job. In flow the bar occupies its own
    * height, so only the gap to the step below it still needs stating. */

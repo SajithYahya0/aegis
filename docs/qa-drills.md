@@ -850,6 +850,13 @@ should match boundary scope, or the boundary is not containing what it claims to
 
 ## 8. `useLayoutEffect` vs `useEffect`
 
+> **Read this before answering anything in this section.** This is the one
+> concept in the curriculum that is **not built** — matrix row W3-D4-04 is
+> `[ ]`. `useLayoutEffect` appears nowhere under `src/`. It was here, in
+> `StickyPremiumSummary`, and it was removed on purpose. Volunteer that in the
+> first sentence of any answer below; being caught claiming a demo that does
+> not exist is far worse than owning a gap that was recorded on purpose.
+
 <details>
 <summary><b>8.1</b> — Both effects eventually set the same value. Why does it matter which one does it?</summary>
 
@@ -859,25 +866,21 @@ Which side of the paint the assignment lands on.
 browser paints. If it sets state, React re-renders and re-commits inside the same
 phase, so exactly one paint happens and it already shows the measured position.
 
-`useEffect` runs after paint. The browser paints once with `FALLBACK_TOP_PX` — 0,
-chosen to be nowhere near the real offset — then the passive effect runs and a
-second paint carries the measured one.
+`useEffect` runs after paint. The browser paints once with whatever the
+pre-measurement fallback was, then the passive effect runs and a second paint
+carries the measured one.
 
 The value is identical either way; only which side of the paint it lands on
-differs.
+differs. That is the whole concept and it is worth being able to say cold.
 
-**Concede the follow-up before it is asked:** in *this* component you cannot
-currently see that difference. `.bar` is `position: sticky`, so `top` is a
-scroll-triggered clamp, and a four-step wizard never scrolls far enough to reach
-it — both branches draw the bar at the same in-flow position. The console's
-`before paint` / `after paint` tags are the observable, and the matrix carries
-the row as `[~]` for exactly this reason. The mechanism is real; the demo of it
-lost its picture when the bar was moved into flow, and the honest answer is to
-say so rather than to move it back.
+**Concede immediately:** there is no code in this app doing it. It used to be
+`StickyPremiumSummary`, measuring the quote wizard's header so the premium bar
+could dock beneath it, with a `layout-effect-flicker` lab toggle swapping the
+layout effect for a passive one. All of it is deleted. 8.3 is why.
 </details>
 
 <details>
-<summary><b>8.2</b> — The console prints milliseconds between commit and correction. Why does the file say not to trust that number?</summary>
+<summary><b>8.2</b> — The old demo logged milliseconds between commit and correction, and its own comments said not to trust that number. Why?</summary>
 
 Because `getBoundingClientRect()` forces a synchronous layout, and on a busy
 first commit that reflow alone costs several milliseconds — *inside* a layout
@@ -885,81 +888,90 @@ effect. "Before paint" is not "instant", so the two branches' millisecond figure
 can overlap, and a reviewer reading only the numbers could conclude the toggle
 does nothing.
 
-The reliable signal is the explicit `before paint` / `after paint` tag on each
-log line, because that reflects a guarantee the browser actually makes — layout
-effects always run and can re-commit before the next paint; passive effects never
-run before the first one — rather than a timing measurement that varies with
-machine load.
+The log line therefore carried an explicit `before paint` / `after paint` tag,
+and that tag was the signal, because it reflects a guarantee the browser actually
+makes — layout effects always run and can re-commit before the next paint;
+passive effects never run before the first one — rather than a timing measurement
+that varies with machine load.
 
-This is the more useful half of the answer generally: when demonstrating a
-guarantee, log the guarantee, not a proxy for it that happens to correlate.
+That is the half of this worth keeping now that the code is gone, and it
+generalises past this row: **when demonstrating a guarantee, log the guarantee,
+not a proxy for it that happens to correlate.** The same instinct is why
+`W3-D3-05`'s preload logs say `(preload)` and `already requested (render)`
+rather than printing timings.
 </details>
 
 <details>
-<summary><b>8.3</b> — This bar was <code>position: fixed</code> so the toggle's flicker would be visible, and it has been changed back to <code>sticky</code>, which makes the toggle inert. Why give up a working demo?</summary>
+<summary><b>8.3</b> — You had a working demo of this. Why is it gone, and why did you not rebuild it somewhere else?</summary>
 
-Because the demo was never the reason the bar exists, and this is the order those
-two things have to be ranked in.
+Two separate decisions, and they were made for different reasons.
 
-The history is worth stating plainly, because it cuts both ways. The component
-started on `sticky`. It was changed to `fixed` on the finding that `sticky` was
-hiding a real difference: a sticky element's `top` is a scroll-triggered clamp —
-it changes nothing until the page has scrolled far enough that the element's
-normal-flow position would cross above that offset — and this four-step wizard
-never scrolls that far, so the bar sat at its in-flow position regardless of what
-`top` held. A Playwright probe recorded rendered rects that were bit-for-bit
-identical with the toggle on and off, *even though the two `top` values genuinely
-differed*. That finding is still true.
+**Why the code went.** The bar started on `position: sticky`, was changed to
+`fixed` so the toggle's flicker would be visible, then changed back to `sticky`
+when product asked for a bar that travels with the wizard and pins on arrival —
+which is sticky's definition and which `fixed` cannot express, a fixed bar being
+welded to the viewport from the first frame. At that point the row went to `[~]`:
+the mechanism still ran, but sticky's `top` is a scroll-triggered clamp and a
+four-step wizard never scrolls far enough to reach it, so both branches drew the
+bar at the same in-flow position.
 
-Then product asked for a bar that travels with the content and pins on arrival.
-That is `sticky`'s definition and `fixed` cannot express it — a fixed bar is
-welded to the viewport from the first frame. So the choice was: satisfy the
-product requirement, or keep a lab toggle looking impressive. Keeping `fixed`
-would have meant a real user-facing behaviour was chosen to protect a
-demonstration, which is the contrivance `CLAUDE.md` actually forbids — the
-inverse of the one this question suggests.
+Then the harder finding. Under `fixed`, `top` is *where the element is drawn*, so
+feeding it the measured header bottom was correct. Under `sticky`, `top` is *the
+viewport offset the element clamps at while pinned* — a different quantity with
+the same name. Handing that the header's bottom edge (~200px) pinned the bar a
+fifth of the way down the viewport, where it covered the fields scrolling
+underneath. The measurement was not merely unobservable any more; it was the bug.
+The correct sticky offset is a small design constant, so it moved into the
+stylesheet as `top: var(--s-3)`.
 
-What was given up is precisely the *picture*, not the mechanism. The measurement
-still runs, both branches still differ, and the `before paint` / `after paint`
-tags still print. The row went to `[~]` in `docs/coverage-matrix.md` with the
-reason written out, which is what that legend is for.
+That left `dockTop`, `FALLBACK_TOP_PX`, `measure()`, the
+`useLayoutEffect`/`useEffect` pair and the lab toggle all computing a number
+nothing could read. `CLAUDE.md` does not allow dead code to sit in the tree
+dressed as a demo, so it was deleted and the defect deregistered from
+`labs/registry.ts`.
 
-The contrivance test still passes on the component itself: does it make sense
-with the lab toggle deleted? It does — a premium bar docking under a
-variable-height header needs a measured offset either way.
+**Why nothing replaced it.** Because there is nowhere honest to put it. The
+concept needs a component that must read a *rendered* dimension before the user
+sees a frame. This app has none: every measurement CSS can do, CSS does. The
+options were a measured tooltip nothing asked for, or a synthetic panel in
+`labs/` — a component that exists for the coverage matrix rather than for the
+app, which is exactly the trade `CLAUDE.md` calls worse than an honest gap. So
+W3-D4-04 is `[ ]`, with the reason written out in `docs/coverage-matrix.md`, and
+it is the only unbuilt row in the file.
+
+**The thing to resist**, if pushed: reverting the bar to `fixed` would bring the
+demo back. That means changing a real user-facing behaviour to protect a
+demonstration, which is the contrivance being guarded against, not an escape from
+it.
 </details>
 
 <details>
-<summary><b>8.4</b> — The measurement is a <code>getBoundingClientRect</code> on every resize plus a state update. <code>position: sticky</code> with a CSS custom property, or a CSS-only layout, needs none of that. Why is JavaScript measuring layout at all?</summary>
+<summary><b>8.4</b> — The old version did a <code>getBoundingClientRect</code> on every resize plus a state update, where CSS needed none of it. Was the JavaScript ever justified?</summary>
 
-This is the strongest attack in this section and it deserves a concession first:
-for *this specific* layout, CSS could do it. A grid or flex column with the bar as
-a sibling of the header, or `position: sticky; top: 0` on a correctly-structured
-container, gets the bar docked under the header with zero JavaScript, zero reflow
-and zero state.
+For *this* layout, no — and that objection was already conceded in this file
+before the code was removed. A sticky element with a `top` offset, or a grid
+column with the bar as a sibling of the header, docks the bar with zero
+JavaScript, zero reflow and zero state. That is precisely what the component is
+now: `position: sticky; top: var(--s-3)` in the stylesheet and no measurement at
+all.
 
-What JavaScript buys is reading a value CSS can compute but not *expose*: the
-header's rendered height as a number, usable by something that is not its sibling.
-The moment the bar needs to live outside the header's layout context — a portal,
-a different stacking context, a sticky element inside a `transform`ed ancestor
-(which `Panel` creates) — the CSS solution stops being available and the measured
-one is the only one left.
+What JavaScript buys in general is reading a value CSS can compute but not
+*expose*: a rendered height as a number, usable by something that is not a
+sibling. The moment the bar has to live outside the header's layout context — a
+portal, a different stacking context, a sticky element inside a `transform`ed
+ancestor (which `Panel` creates) — the CSS route closes and the measured one is
+the only one left. None of those conditions held here.
 
-So the honest positioning is: this component demonstrates the
-`useLayoutEffect` mechanism on a layout where CSS would also have worked. It was
-picked as the simplest place to show the before-paint/after-paint distinction; a
-layout complex enough to *force* the measurement would have made the demo about
-the layout instead.
-
-That trade got worse, not better, when the bar went back to `position: sticky` —
-the distinction is now only in the console, so the CSS-would-have-done-it
-objection lands harder here than it used to. Naming that is still the right move.
-The reviewer knows the CSS route exists, and `docs/coverage-matrix.md` records
-the row as `[~]` rather than claiming otherwise.
+So the honest history is: the component demonstrated the `useLayoutEffect`
+mechanism on a layout where CSS also worked, was picked because it was the
+simplest place to show the before-paint/after-paint distinction, and lost the
+argument when a layout change made the measured value not just redundant but
+wrong. The reviewer who asks this question is right, and the code now agrees
+with them.
 </details>
 
 <details>
-<summary><b>8.5</b> — Both effects are called unconditionally and each returns early based on the toggle, rather than one <code>if</code> choosing between them. Why?</summary>
+<summary><b>8.5</b> — The deleted version called both effects unconditionally and had each return early on the toggle, rather than one <code>if</code> choosing between them. Why? (The pattern is still live elsewhere.)</summary>
 
 Because the alternative violates the rules of hooks.
 
@@ -972,12 +984,14 @@ not by name, so flipping the toggle changes the count and shape of the hook list
 and React throws "Rendered more hooks than during the previous render" — the
 `ConditionalHookDemo` crash, in production code.
 
-Calling both and gating the *bodies* keeps the call order fixed. The toggle is in
-the deps array (`[useEffectInstead]`), so flipping it re-runs both effects, one of
-which returns immediately and one of which measures.
+Calling both and gating the *bodies* keeps the call order fixed. The toggle sits
+in the deps array, so flipping it re-runs both effects, one of which returns
+immediately and one of which does the work.
 
-This is the same pattern `EffectDepsDemo` and `StaleClosureDemo` use, and it
-generalises: a hook's *call* is unconditional, its *work* can be conditional.
+This generalises, and it is still shipped: `EffectDepsDemo` and
+`StaleClosureDemo` both gate effect bodies on their lab flags rather than gating
+the hook calls. **A hook's *call* is unconditional; its *work* can be
+conditional.**
 </details>
 
 ---

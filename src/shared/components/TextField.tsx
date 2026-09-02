@@ -20,13 +20,16 @@
  *   the label/input/error association stays correct no matter how many
  *   copies of this field are on the page at once.
  *
- *   No `required` prop: `ClaimIntakeWizard`'s `goNext()` already refuses to
- *   advance past the Incident step without an amount, a date, a location, a
- *   phone number and a description — but nothing on screen said so. An agent
- *   filled in what looked optional, pressed Continue, and was told after the
- *   fact which field they had missed, one field per attempt. Marking the
- *   fields the validator actually enforces turns that into information the
- *   user has *before* they submit. The marker is deliberately two signals,
+ *   No `required` prop: both wizards' step gates already refuse to advance
+ *   with a mandatory field blank — `ClaimIntakeWizard`'s Incident step wants
+ *   an amount, a date, a location, a phone number and a description, and
+ *   `QuoteWizardPage`'s Applicant and Risk steps want a city, a state, a name
+ *   and date of birth for every insured party, and a sum insured above zero —
+ *   but nothing on screen said so. An agent filled in what looked optional,
+ *   pressed Continue, and was told after the fact which field they had
+ *   missed, one field per attempt. Marking the fields the validator actually
+ *   enforces turns that into information the user has *before* they submit.
+ *   The marker is deliberately two signals,
  *   not one: a red `*` carrying `aria-hidden` for sighted users, and
  *   `required` + `aria-required` on the input itself for assistive tech —
  *   a screen reader announces "required", it does not read out punctuation
