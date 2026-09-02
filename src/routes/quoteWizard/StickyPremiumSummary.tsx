@@ -21,7 +21,13 @@
  *   measured-vs-fallback gap that was invisible under `sticky` is now the
  *   only thing rendering the panel's position at all.
  *
- * CONCEPTS: W3-D4-04
+ *   It also renders a premium delta ("was ₹X"), which needs the value this
+ *   component held on its *previous* render. That history lives in two refs
+ *   written during render, not in state, because recording history is not
+ *   itself something the screen reacts to — only the comparison between
+ *   "current" and "previous" is ever rendered.
+ *
+ * CONCEPTS: W3-D4-04, W2-D2-03
  *
  * WITHOUT THIS (the toggle, not just the component):
  *   `useLayoutEffect` runs synchronously after the DOM is updated but before
@@ -45,12 +51,25 @@
  *   (layout effects always run and can re-commit before the next paint;
  *   passive effects never run before the first one) rather than a timing
  *   number that can vary with machine load.
+ *
+ * WITHOUT THIS (the previous-premium refs):
+ *   The obvious-looking alternative — `const [prev, setPrev] =
+ *   useState(premium); useEffect(() => setPrev(premium), [premium])` —
+ *   renders the *new* premium alongside a `prev` that has not caught up yet
+ *   (the effect that would update it has not run), then immediately
+ *   re-renders once it has. The delta indicator built that way flashes
+ *   "was ₹0" (or the value two changes ago) for one frame on every change,
+ *   because `setPrev` inside an effect is itself a state update that
+ *   schedules another render rather than being available in the render that
+ *   needs it. Writing to a ref during render has no such lag: by the time
+ *   this render reads `previousPremiumRef.current`, it still holds what was
+ *   written last render, and this render's write only takes effect for the
+ *   *next* one.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement, type RefObject } from 'react';
 import { useLabFlag } from '../../shared/labs';
 import { formatCurrency } from '../../shared/format';
-import { usePrevious } from '../../shared/hooks/usePrevious';
 import styles from './StickyPremiumSummary.module.css';
 
 export interface StickyPremiumSummaryProps {
@@ -70,7 +89,13 @@ const FALLBACK_TOP_PX = 0;
 export function StickyPremiumSummary({ headerRef, premium }: StickyPremiumSummaryProps): ReactElement {
   const useEffectInstead = useLabFlag('layout-effect-flicker');
   const [dockTop, setDockTop] = useState(FALLBACK_TOP_PX);
-  const previousPremium = usePrevious(premium);
+  const currentPremiumRef = useRef(premium);
+  const previousPremiumRef = useRef<number | undefined>(undefined);
+  if (currentPremiumRef.current !== premium) {
+    previousPremiumRef.current = currentPremiumRef.current;
+    currentPremiumRef.current = premium;
+  }
+  const previousPremium = previousPremiumRef.current;
 
   // Marks when this render's DOM was committed — always a layout effect, so
   // it runs before paint no matter which branch below is active, giving both

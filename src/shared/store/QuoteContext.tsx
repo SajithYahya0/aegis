@@ -230,20 +230,13 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useQuoteState(): Quote {
-  const ctx = useContext(QuoteStateContext);
-  if (!ctx) {
-    throw new Error('useQuoteState() must be called within a <QuoteProvider>.');
+export function useQuote(): [Quote, Dispatch<QuoteAction>] {
+  const state = useContext(QuoteStateContext);
+  const dispatch = useContext(QuoteDispatchContext);
+  if (!state || !dispatch) {
+    throw new Error('useQuote() must be called within a <QuoteProvider>.');
   }
-  return ctx;
-}
-
-export function useQuoteDispatch(): Dispatch<QuoteAction> {
-  const ctx = useContext(QuoteDispatchContext);
-  if (!ctx) {
-    throw new Error('useQuoteDispatch() must be called within a <QuoteProvider>.');
-  }
-  return ctx;
+  return [state, dispatch];
 }
 
 export const QUOTE_STEP_ORDER = STEP_ORDER;

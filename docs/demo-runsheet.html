@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AEGIS — Demo Runsheet</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#131a23; --bg3:#182029; --line:#2b3946;
+    --fg:#e8eef4; --dim:#9db0c2; --dimmer:#7b8fa3;
+    --accent:#5fd3f3; --accent2:#ffcb6b; --good:#7ee787; --bad:#ff7b72;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth; scroll-padding-top:104px}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:17px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- sticky top bar ---------- */
+  #bar{
+    position:sticky; top:0; z-index:50; background:#0a0f15;
+    border-bottom:1px solid var(--line); padding:8px 14px 9px;
+    box-shadow:0 6px 18px rgba(0,0,0,.55);
+  }
+  #barTop{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  #brand{font-weight:700; letter-spacing:.06em; font-size:15px; color:var(--accent)}
+  #brand small{color:var(--dimmer); font-weight:400; letter-spacing:0}
+  #nums{display:flex; gap:5px; flex-wrap:wrap; flex:1 1 420px}
+  #nums button{
+    font:600 15px/1 var(--mono); color:var(--dim); background:var(--bg3);
+    border:1px solid var(--line); border-radius:5px; padding:7px 10px; cursor:pointer;
+    min-width:34px;
+  }
+  #nums button:hover{color:var(--fg); border-color:var(--accent)}
+  #nums button.on{background:var(--accent); color:#06121a; border-color:var(--accent)}
+  #nums button.panel{min-width:auto; font-size:13px; letter-spacing:.04em}
+  #q{
+    flex:0 1 300px; font:16px/1 inherit; color:var(--fg); background:var(--bg3);
+    border:1px solid var(--line); border-radius:5px; padding:9px 11px;
+  }
+  #q:focus{outline:none; border-color:var(--accent)}
+  #hint{font-size:13px; color:var(--dimmer); font-family:var(--mono)}
+  #count{font-size:13px; color:var(--accent2); font-family:var(--mono); min-width:76px}
+
+  /* ---------- layout ---------- */
+  main{max-width:1220px; margin:0 auto; padding:18px 16px 140px}
+  .stop{border:1px solid var(--line); border-radius:8px; margin:0 0 12px; background:var(--bg2); overflow:hidden}
+  .stop > h2{
+    margin:0; padding:13px 16px; cursor:pointer; display:flex; gap:12px; align-items:baseline;
+    background:var(--bg3); font-size:18px; font-weight:600; user-select:none;
+  }
+  .stop > h2:hover{background:#1e2833}
+  .stop > h2 .n{
+    font:700 15px/1 var(--mono); color:#06121a; background:var(--accent);
+    border-radius:4px; padding:5px 8px; flex:0 0 auto;
+  }
+  .stop > h2 .route{font-family:var(--mono); color:var(--accent2); font-size:17px}
+  .stop > h2 .what{color:var(--dim); font-weight:400; font-size:15px; flex:1 1 auto}
+  .stop > h2 .caret{color:var(--dimmer); font-size:13px}
+  .stop .body{padding:0 16px 16px; display:none}
+  .stop.open .body{display:block}
+  .stop.open > h2 .caret::after{content:"▾"}
+  .stop:not(.open) > h2 .caret::after{content:"▸"}
+
+  .do{
+    background:#101a22; border-left:3px solid var(--accent); border-radius:0 5px 5px 0;
+    padding:10px 13px; margin:14px 0 12px; font-size:16px;
+  }
+  .do b{color:var(--accent); font-size:13px; letter-spacing:.09em; display:block; margin-bottom:5px}
+  .do ol{margin:0; padding-left:20px}
+  .do li{margin:3px 0}
+  .do kbd,.do code{font-family:var(--mono); background:#1c2833; border:1px solid var(--line);
+    border-radius:3px; padding:1px 5px; font-size:15px; color:var(--accent2)}
+
+  .console{
+    background:#080c11; border:1px solid var(--line); border-radius:5px;
+    padding:10px 13px; margin:12px 0 0; font-family:var(--mono); font-size:14.5px; color:var(--good);
+    overflow-x:auto;
+  }
+  .console b{color:var(--dimmer); font-family:inherit; font-size:12px; letter-spacing:.09em;
+    display:block; margin-bottom:5px; font-weight:600}
+  .console div{white-space:pre; margin:2px 0}
+  .console i{color:var(--dimmer); font-style:normal}
+
+  /* ---------- tables ---------- */
+  table{width:100%; border-collapse:collapse; margin:4px 0 0; font-size:16px}
+  thead th{
+    text-align:left; font-size:11.5px; letter-spacing:.1em; color:var(--dimmer);
+    border-bottom:1px solid var(--line); padding:8px 10px 6px; font-weight:700;
+  }
+  tbody td{border-bottom:1px solid #1e2731; padding:10px; vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#161f28}
+  td.say{width:53%}
+  td.con{width:15%}
+  td.file{width:32%}
+  .cid{
+    display:inline-block; font:600 13px/1 var(--mono); color:var(--accent);
+    background:#0f2029; border:1px solid #24414e; border-radius:3px;
+    padding:3px 6px; margin:0 4px 4px 0; white-space:nowrap;
+  }
+  .cid.q{color:var(--accent2); background:#241f10; border-color:#4a3d1a}
+  .path{
+    font-family:var(--mono); font-size:14px; color:var(--dim); cursor:pointer;
+    display:block; word-break:break-all; border-radius:3px; padding:2px 4px; margin:-2px -4px;
+    border:1px solid transparent;
+  }
+  .path:hover{color:var(--fg); background:#1c2833; border-color:var(--line)}
+  .path .ex{color:var(--accent2)}
+  .path .ln{color:var(--good)}
+  .path.copied{background:#123023; border-color:var(--good); color:var(--good)}
+  .path.copied::after{content:" ✓ copied"; color:var(--good)}
+
+  .warn{
+    background:#241014; border-left:3px solid var(--bad); border-radius:0 5px 5px 0;
+    padding:10px 13px; margin:14px 0 0; font-size:15.5px;
+  }
+  .warn b{color:var(--bad); font-size:13px; letter-spacing:.09em; display:block; margin-bottom:5px}
+
+  /* ---------- closing panels ---------- */
+  .panel{border:1px solid var(--line); border-radius:8px; margin:0 0 12px; background:var(--bg2); overflow:hidden}
+  .panel > h2{margin:0; padding:13px 16px; cursor:pointer; background:#20161a; font-size:17px;
+    letter-spacing:.05em; display:flex; gap:10px; align-items:baseline; user-select:none}
+  .panel#p-qual > h2{background:#231d10}
+  .panel#p-term > h2{background:#101f22}
+  .panel > h2 .what{color:var(--dim); font-weight:400; font-size:15px; flex:1}
+  .panel > h2 .caret{color:var(--dimmer); font-size:13px}
+  .panel.open > h2 .caret::after{content:"▾"}
+  .panel:not(.open) > h2 .caret::after{content:"▸"}
+  .panel .body{padding:0 16px 16px; display:none}
+  .panel.open .body{display:block}
+  .item{border-top:1px solid #1e2731; padding:13px 0}
+  .item:first-child{border-top:none}
+  .item h3{margin:0 0 7px; font-size:16px; display:flex; gap:9px; align-items:baseline; flex-wrap:wrap}
+  .item h3 .t{color:var(--fg); font-weight:600}
+  .item p{margin:4px 0; font-size:15.5px; color:var(--dim)}
+  .item p b{color:var(--fg); font-weight:600; font-size:12.5px; letter-spacing:.07em;
+    display:inline-block; min-width:104px; color:var(--accent2)}
+  .item.bad h3 .t{color:var(--bad)}
+
+  .empty{display:none; text-align:center; color:var(--dimmer); padding:40px; font-size:16px}
+  body.filtering .empty.show{display:block}
+  .hide{display:none !important}
+
+  /* ---------- print ---------- */
+  @media print{
+    :root{--bg:#fff;--bg2:#fff;--bg3:#f2f2f2;--line:#bbb;--fg:#000;--dim:#333;--dimmer:#555;
+      --accent:#05506b;--accent2:#7a4b00;--good:#1a5c2a;--bad:#a01020}
+    body{background:#fff; color:#000; font-size:10.5pt}
+    #bar,.empty{display:none !important}
+    main{max-width:none; padding:0}
+    .stop,.panel{break-inside:auto; page-break-inside:auto; border:1px solid #bbb; margin:0 0 8pt}
+    .stop .body,.panel .body{display:block !important; padding:0 8pt 8pt}
+    .stop > h2,.panel > h2{background:#eee; padding:6pt 8pt; font-size:12pt}
+    .stop > h2 .caret,.panel > h2 .caret{display:none}
+    .stop > h2 .n{background:#05506b; color:#fff}
+    .console{background:#f5f5f5; color:#1a5c2a; border:1px solid #ccc}
+    .path{color:#000}
+    table{font-size:9.5pt}
+    tbody td{padding:4pt 5pt}
+    @page{size:A4; margin:12mm}
+  }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <div id="barTop">
+    <span id="brand">AEGIS RUNSHEET <small>· 10 stops</small></span>
+    <span id="nums"></span>
+    <input id="q" type="search" placeholder="filter: concept id, file, or phrase" autocomplete="off" />
+    <span id="count"></span>
+    <span id="hint">/ search · esc clear · j k stops</span>
+  </div>
+</div>
+
+<main>
+
+<!-- ============================ STOP 1 ============================ -->
+<section class="stop open" id="s1">
+  <h2><span class="n">1</span><span class="route">/</span><span class="what">Dashboard. Sidebar, header with the role switcher, empty content region. Nothing here but the shell — that is the point.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Open the app at <code>/</code>. Open DevTools console, keep it visible.</li>
+        <li>Hover <code>Policies</code> in the sidebar — <b style="display:inline">do not click</b>. Wait one beat.</li>
+        <li>Now click it, then immediately press browser Back to return here.</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W2-D4-01 main.tsx browserrouter router history url address bar">
+          <td class="say">I implemented exactly one <code>BrowserRouter</code>, in <code>main.tsx</code> only, otherwise a second one lower in the tree silently wins and a sidebar click changes the address bar while the page underneath never changes.</td>
+          <td class="con"><span class="cid">W2-D4-01</span></td>
+          <td class="file"><span class="path">src/main.tsx — <span class="ex">createRoot(...).render</span> <span class="ln">(L44)</span></span></td>
+        </tr>
+        <tr data-s="W2-D4-02 App.tsx routes route index route table">
+          <td class="say">I implemented one central <code>&lt;Routes&gt;</code> table with an index route, otherwise <code>/</code> matches nothing and the app opens on an empty content region that looks identical to a crash.</td>
+          <td class="con"><span class="cid">W2-D4-02</span></td>
+          <td class="file"><span class="path">src/App.tsx — <span class="ex">App</span> <span class="ln">(L107)</span></span></td>
+        </tr>
+        <tr data-s="W2-D4-04 AppLayout NavLink active styling sidebar">
+          <td class="say">I implemented <code>NavLink</code> with an active class, otherwise nothing on the sidebar tells you which page you are looking at.</td>
+          <td class="con"><span class="cid">W2-D4-04</span></td>
+          <td class="file"><span class="path">src/shared/layout/AppLayout.tsx — <span class="ex">AppLayout</span> <span class="ln">(L65)</span></span></td>
+        </tr>
+        <tr data-s="W3-D3-01 W3-D5-05 lazyRoutes splitChunk code splitting bundle chunk">
+          <td class="say">I implemented per-route <code>React.lazy</code>, otherwise someone who opens the dashboard and leaves has already downloaded the quote reducer, the claim wizard and the whole rating engine.</td>
+          <td class="con"><span class="cid">W3-D3-01</span><span class="cid">W3-D5-05</span></td>
+          <td class="file"><span class="path">src/shared/routes/lazyRoutes.tsx — <span class="ex">splitChunk</span> <span class="ln">(L122)</span></span></td>
+        </tr>
+        <tr data-s="W3-D3-03 Suspense fallback per route boundary BoundedRoute App.tsx">
+          <td class="say">I implemented a <code>&lt;Suspense&gt;</code> per route instead of one at the root, otherwise every navigation blanks the sidebar and header too, so for 300ms there is nothing on screen to click back to.</td>
+          <td class="con"><span class="cid">W3-D3-03</span></td>
+          <td class="file"><span class="path">src/App.tsx — <span class="ex">BoundedRoute</span> <span class="ln">(L97)</span></span></td>
+        </tr>
+        <tr data-s="W3-D3-04 Skeleton loading placeholder layout shift">
+          <td class="say">I implemented skeletons shaped like the page they replace, otherwise a one-line "Loading…" collapses the page and everything below jumps down when the real table lands.</td>
+          <td class="con"><span class="cid">W3-D3-04</span></td>
+          <td class="file"><span class="path">src/shared/components/Skeleton.tsx — <span class="ex">Skeleton</span> <span class="ln">(L69)</span></span></td>
+        </tr>
+        <tr data-s="W3-D3-05 preload hover focus intent preloadPath AppLayout accessibility keyboard">
+          <td class="say">I implemented chunk preload on hover <em>and</em> focus, otherwise the download only starts at the click and you watch a skeleton for a round trip your pointer announced 300ms earlier — and a keyboard user, who never fires <code>mouseenter</code>, takes the slow path every single time.</td>
+          <td class="con"><span class="cid">W3-D3-05</span></td>
+          <td class="file"><span class="path">src/shared/layout/AppLayout.tsx — <span class="ex">onMouseEnter / onFocus → preloadPath</span> <span class="ln">(L79)</span></span></td>
+        </tr>
+        <tr data-s="C-04 useSyncExternalStore useOnlineStatus ConnectivityBanner offline navigator.onLine">
+          <td class="say">I implemented <code>useSyncExternalStore</code> over the browser's online/offline events, otherwise a <code>useState</code> mirror of <code>navigator.onLine</code> can disagree with the live value on the one render that matters and the banner tells you the opposite of the truth.</td>
+          <td class="con"><span class="cid">C-04</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useOnlineStatus.ts — <span class="ex">useOnlineStatus</span> <span class="ln">(L52)</span></span><span class="path">src/shared/components/ConnectivityBanner.tsx — <span class="ex">ConnectivityBanner</span> <span class="ln">(L23)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE — point at these three, in this order</b>
+      <div>[chunk] ↓ DashboardPage (render)      <i>← on load</i></div>
+      <div>[chunk] ↓ PoliciesPage (preload)     <i>← on hover, before any click</i></div>
+      <div>[chunk] ⤳ PoliciesPage already requested (render)   <i>← the click paid nothing</i></div>
+    </div>
+    <div class="do"><b>OPTIONAL — C-04 live</b>
+      <ol><li>DevTools → Network → throttling → <code>Offline</code>. The banner appears on whatever route is open. Set it back to <code>No throttling</code> and it disappears.</li></ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 2 ============================ -->
+<section class="stop" id="s2">
+  <h2><span class="n">2</span><span class="route">/policies</span><span class="what">The policy book — 140 rows, filter bar, two views. Every Week-1 fundamental and the whole Week-3 performance story is on this one screen.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Console open. Point at <code>[rating] rateBook 140 policies in …ms</code> — say <b style="display:inline">"once, on mount"</b> and keep pointing at it all through step 2.</li>
+        <li>Type <code>nair</code> into <em>Search policy id or customer name</em>. 140 → 13. Console: no new <code>[rating]</code> line, no <code>[render] PolicyRow</code> for rows still on screen.</li>
+        <li>Watch the address bar — <code>?q=nair</code> appears only after you stop typing.</li>
+        <li>Click the <code>Exposure by customer</code> tab, then <b style="display:inline">immediately</b> type into the search box. The input never stalls; "Switching…" shows next to the tabs.</li>
+        <li>Back to <code>Policy list</code>. Set status = <code>Lapsed</code>, type = <code>Life</code> — narrow to zero and show the empty state, then clear.</li>
+        <li>Copy the URL with filters on, paste into a new tab.</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W3-D1-03 useMemo rateBook expensive rating engine PoliciesPage premiums">
+          <td class="say">I implemented the rating pass as a <code>useMemo</code> keyed on the whole book and never on the filtered array, otherwise every keystroke re-prices 140 policies on the main thread — 25–55ms of frozen input per character — and hands every visible row a brand-new premium object that defeats the row memo underneath it.</td>
+          <td class="con"><span class="cid">W3-D1-03</span></td>
+          <td class="file"><span class="path">src/routes/PoliciesPage.tsx — <span class="ex">premiums = useMemo(rateBook, …)</span> <span class="ln">(L129)</span></span></td>
+        </tr>
+        <tr data-s="W3-D1-01 React.memo PolicyRow render log 140 rows">
+          <td class="say">I implemented <code>React.memo</code> on the row, otherwise every keystroke re-renders all 140 rows even though none of their data changed, and typing in the search box visibly stutters on the rows you are not filtering.</td>
+          <td class="con"><span class="cid">W3-D1-01</span><span class="cid">W1-02</span></td>
+          <td class="file"><span class="path">src/routes/policies/PolicyRow.tsx — <span class="ex">PolicyRow = memo(PolicyRowImpl)</span> <span class="ln">(L69)</span></span></td>
+        </tr>
+        <tr data-s="W3-D1-05 useCallback handleSelect stable identity onSelect memo">
+          <td class="say">I implemented <code>useCallback</code> on the row's click handler, otherwise every row gets a new function identity on every parent render and the memo above bails out for nothing — the rows re-render anyway, on a prop that had nothing to do with what you typed.</td>
+          <td class="con"><span class="cid">W3-D1-05</span></td>
+          <td class="file"><span class="path">src/routes/PoliciesPage.tsx — <span class="ex">handleSelect</span> <span class="ln">(L151)</span></span></td>
+        </tr>
+        <tr data-s="W3-D1-06 FilterStatus not memoised counter-example when not to optimise">
+          <td class="say">I deliberately did <em>not</em> memoise the "N of M policies" line, otherwise a comparator would run once per keystroke on props that change every keystroke, always report "changed", and re-render anyway — strictly more work than not memoising at all.</td>
+          <td class="con"><span class="cid">W3-D1-06</span><span class="cid">W1-01</span></td>
+          <td class="file"><span class="path">src/routes/policies/FilterStatus.tsx — <span class="ex">FilterStatus</span> <span class="ln">(L38)</span></span></td>
+        </tr>
+        <tr data-s="C-03 useDeferredValue deferredQuery isStale updating dimmed lag">
+          <td class="say">I implemented <code>useDeferredValue</code> on the search text, otherwise the expensive re-filter runs inside the same render that echoes your keystroke and the character you typed appears late — the "Updating…" line and the dimmed table are that lag made visible instead of felt.</td>
+          <td class="con"><span class="cid">C-03</span></td>
+          <td class="file"><span class="path">src/shared/hooks/usePolicyFilters.ts — <span class="ex">deferredQuery</span> <span class="ln">(L70)</span></span></td>
+        </tr>
+        <tr data-s="W3-D2-03 useDebounce search url history copy link half typed">
+          <td class="say">I implemented a 300ms debounce before writing the query to the URL, otherwise every keystroke rewrites the history entry and a link you copy mid-type captures a half-typed query.</td>
+          <td class="con"><span class="cid">W3-D2-03</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useDebounce.ts — <span class="ex">useDebounce</span> <span class="ln">(L21)</span></span></td>
+        </tr>
+        <tr data-s="C-11 startTransition standalone setSearchParams effect non-urgent">
+          <td class="say">I implemented the URL commit as a bare <code>startTransition</code> — it fires from an effect, not a handler, so there is no component to own a pending flag — otherwise that <code>setSearchParams</code> is an urgent update that can starve the render your next keystroke is waiting on.</td>
+          <td class="con"><span class="cid">C-11</span></td>
+          <td class="file"><span class="path">src/shared/hooks/usePolicyFilters.ts — <span class="ex">startTransition(...)</span> <span class="ln">(L81)</span></span></td>
+        </tr>
+        <tr data-s="C-02 useTransition handleViewChange isPending PolicyBookTabs exposure switching">
+          <td class="say">I implemented the view switch as a <code>useTransition</code>, otherwise unmounting 140 memoised rows and mounting the roll-up is one uninterruptible block — type during it and the character you pressed appears late, in a burst, after the new table lands.</td>
+          <td class="con"><span class="cid">C-02</span></td>
+          <td class="file"><span class="path">src/routes/PoliciesPage.tsx — <span class="ex">handleViewChange</span> <span class="ln">(L143)</span></span><span class="path">src/routes/policies/PolicyBookTabs.tsx — <span class="ex">PolicyBookTabs</span> <span class="ln">(L39)</span></span></td>
+        </tr>
+        <tr data-s="W2-D4-07 useSearchParams url filters bookmark share refresh">
+          <td class="say">I implemented the filters as URL search params, otherwise a filtered view cannot be bookmarked, shared or survive a refresh — you would have to describe the filter to a colleague instead of sending it.</td>
+          <td class="con"><span class="cid">W2-D4-07</span></td>
+          <td class="file"><span class="path">src/shared/hooks/usePolicyFilters.ts — <span class="ex">usePolicyFilters</span> <span class="ln">(L65)</span></span></td>
+        </tr>
+        <tr data-s="W3-D2-05 hook composition usePolicyFilters searchParams debounce deferred memo">
+          <td class="say">I implemented the filter logic as one composed hook — search params plus debounce plus deferred value plus memo — otherwise a second consumer re-implements it and the two copies disagree about what "filtered" means.</td>
+          <td class="con"><span class="cid">W3-D2-05</span><span class="cid">W1-13</span></td>
+          <td class="file"><span class="path">src/shared/hooks/usePolicyFilters.ts — <span class="ex">usePolicyFilters</span> <span class="ln">(L65)</span></span></td>
+        </tr>
+        <tr data-s="W1-04 useState primitive rawQuery search input echoes instantly">
+          <td class="say">I implemented the raw search text as local <code>useState</code>, otherwise every keystroke round-trips through the URL before the input can display it and typing visibly lags the keyboard.</td>
+          <td class="con"><span class="cid">W1-04</span></td>
+          <td class="file"><span class="path">src/shared/hooks/usePolicyFilters.ts — <span class="ex">rawQuery</span> <span class="ln">(L68)</span></span></td>
+        </tr>
+        <tr data-s="W1-10 event handling typed handlers PolicyFilterBar ChangeEvent">
+          <td class="say">I implemented typed change handlers reading <code>event.target.value</code>, otherwise an untyped handler can pass the whole synthetic event where a string was expected and the status filter compares against <code>[object Object]</code> — zero rows, no error.</td>
+          <td class="con"><span class="cid">W1-10</span></td>
+          <td class="file"><span class="path">src/routes/policies/PolicyFilterBar.tsx — <span class="ex">PolicyFilterBar</span> <span class="ln">(L38)</span></span></td>
+        </tr>
+        <tr data-s="W1-08 stable key policy.id list rendering PolicyList flicker">
+          <td class="say">I implemented a data-derived <code>key</code> on each row, otherwise React keys by position and filtering reuses POL-1's DOM node for POL-2 — you see one frame of a row wearing the wrong customer's name.</td>
+          <td class="con"><span class="cid">W1-08</span></td>
+          <td class="file"><span class="path">src/routes/policies/PolicyList.tsx — <span class="ex">PolicyList (key={policy.id})</span> <span class="ln">(L32)</span></span></td>
+        </tr>
+        <tr data-s="W1-09 conditional rendering empty state early return no policies match">
+          <td class="say">I implemented an explicit empty-state early return, otherwise an empty <code>&lt;tbody&gt;</code> under a full header row renders a table that looks broken rather than a filter that found nothing.</td>
+          <td class="con"><span class="cid">W1-09</span></td>
+          <td class="file"><span class="path">src/routes/policies/PolicyList.tsx — <span class="ex">empty-state early return</span> <span class="ln">(L39)</span></span></td>
+        </tr>
+        <tr data-s="W1-12 CSS Modules composed conditional class STATUS_CLASS status badge colour">
+          <td class="say">I implemented the status badge as a <code>Record&lt;PolicyStatus, string&gt;</code> of CSS Module classes, otherwise a template-string class name is invisible to Modules' scoping and resolves to nothing — every status badge renders the same colourless grey, which is exactly what a status badge exists to prevent.</td>
+          <td class="con"><span class="cid">W1-12</span><span class="cid">W1-03</span></td>
+          <td class="file"><span class="path">src/routes/policies/PolicyRow.tsx — <span class="ex">STATUS_CLASS</span> <span class="ln">(L34)</span></span></td>
+        </tr>
+        <tr data-s="W1-14 Panel children slot composition filters recently viewed chrome">
+          <td class="say">I implemented one <code>&lt;Panel&gt;</code> with a children slot, otherwise every panel-like widget reimplements its own header and padding and the first one that drifts makes the console look like two apps stapled together.</td>
+          <td class="con"><span class="cid">W1-14</span></td>
+          <td class="file"><span class="path">src/shared/components/Panel.tsx — <span class="ex">Panel</span> <span class="ln">(L28)</span></span></td>
+        </tr>
+        <tr data-s="C-12 render counts memo useMemo interaction proof measured docs render-counts.md">
+          <td class="say">I measured the memo instead of asserting it — zero row re-renders for a keystroke that does not change the filtered set, one <code>rateBook</code> call for the whole session — otherwise "memoisation works" is something you have to take on faith from the console for the length of one demo.</td>
+          <td class="con"><span class="cid">C-12</span></td>
+          <td class="file"><span class="path">docs/render-counts.md — <span class="ex">Measured counts</span> <span class="ln">(table)</span></span></td>
+        </tr>
+        <tr data-s="W1-07 W3-D2-02 C-08 useLocalStorage lazy initialiser useState arrow readStorage JSON.parse useDebugValue devtools recently viewed read path only">
+          <td class="say">I implemented the storage read as <code>useState</code>'s lazy <code>() =&gt;</code> initialiser with a <code>try/catch</code> around the parse, otherwise a synchronous <code>localStorage</code> read and a <code>JSON.parse</code> run on every keystroke in the search box — and a value left by an older build throws during the initial render and takes the whole page down instead of resetting one preference. <b style="display:inline">Demo the read path only</b> (pre-seed the key, reload); the write path is dead — see D2.</td>
+          <td class="con"><span class="cid">W1-07</span><span class="cid">W3-D2-02</span><span class="cid">C-08</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useLocalStorage.ts — <span class="ex">useState(() =&gt; readStorage(...))</span> <span class="ln">(L43)</span></span><span class="path">src/shared/hooks/useLocalStorage.ts — <span class="ex">useDebugValue</span> <span class="ln">(L55)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE — the whole memo story is these four lines</b>
+      <div>[rating] rateBook 140 policies in 25.3ms   <i>← once, on mount, and never again</i></div>
+      <div>[render] PolicyRow POL-00001 … ×140        <i>← once, on mount</i></div>
+      <div>[render] FilterStatus                     <i>← every keystroke, on purpose (W3-D1-06)</i></div>
+      <div>[compute] ExposureByCustomer roll-up over 140 policies  <i>← only on the tab switch</i></div>
+      <div><i>StrictMode doubles every count in dev; the ratio is what matters.</i></div>
+    </div>
+    <div class="warn"><b>DO NOT DEMO — "RECENTLY VIEWED" IS DEAD</b>
+      Clicking a policy id does <b>not</b> populate the Recently viewed panel, and it does not survive a reload. Verified by probe: <code>localStorage['aegis:recent-policies']</code> stays <code>"[]"</code> after a row click. Do not say the words "recently viewed" while on this screen. If the reviewer notices the panel is missing, that is your cue — see <b>DISCREPANCIES → D2</b> and volunteer it. The matrix rows that hang off it (W1-05, W1-06) are demonstrated for real on <b>stop 4</b> instead.
+    </div>
+    <div class="do"><b>IF YOU WANT W1-07 / W3-D2-02 / C-08 LIVE (the read half, which does work)</b>
+      <ol>
+        <li>DevTools → Application → Local Storage → set <code>aegis:recent-policies</code> to <code>["POL-00003","POL-00015"]</code>.</li>
+        <li>Reload <code>/policies</code>. The panel renders both. That is the lazy <code>useState(() =&gt; …)</code> initialiser reading storage exactly once on mount — say <em>"I implemented the lazy initialiser form, otherwise a synchronous storage read and a JSON.parse run on every keystroke in the search box"</em>.</li>
+        <li>React DevTools → Components → <code>PoliciesPage</code> → hooks list shows <code>LocalStorage: "aegis:recent-policies: […]"</code> — that label is <code>useDebugValue</code> (C-08).</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 3 ============================ -->
+<section class="stop" id="s3">
+  <h2><span class="n">3</span><span class="route">/policies/POL-00024</span><span class="what">Policy detail shell. Lapsed health policy — chosen because lapsed is the branch that reads auth. Countdown, async summary card, risk widget, three tabs.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Search <code>POL-00024</code> on /policies, click the id. (Lapsed, health, 1 claim on file, 3 coverage lines.)</li>
+        <li>Point at the renewal countdown ticking in the header. Stop moving the mouse for 30s at some point — "Session idle" appears.</li>
+        <li>Read the amber reinstatement line under the summary card.</li>
+        <li>Header → <code>Viewing as</code> → <b style="display:inline">Underwriter</b>. The wording of that line changes. Switch back to Agent.</li>
+        <li>Click <code>Claims</code>, then <code>Documents</code>, then back to <code>Coverage</code>. Watch the console for <code>[api]</code> lines.</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W2-D4-05 useParams policy id url direct bookmark">
+          <td class="say">I implemented the policy id via <code>useParams</code>, otherwise it has to travel as a prop from wherever the link was clicked — which breaks the moment someone pastes the URL in directly.</td>
+          <td class="con"><span class="cid">W2-D4-05</span></td>
+          <td class="file"><span class="path">src/routes/PolicyDetailPage.tsx — <span class="ex">PolicyDetailPage</span> <span class="ln">(L58)</span></span></td>
+        </tr>
+        <tr data-s="W2-D4-03 nested routes Outlet tabs coverage claims documents shareable address refresh">
+          <td class="say">I implemented the tabs as nested routes under an <code>&lt;Outlet&gt;</code>, otherwise three divs toggled by local state work until you refresh or press Back — and then you are silently on Coverage again with a URL claiming Claims.</td>
+          <td class="con"><span class="cid">W2-D4-03</span></td>
+          <td class="file"><span class="path">src/routes/PolicyDetailPage.tsx — <span class="ex">&lt;Outlet /&gt;</span> <span class="ln">(L93)</span></span></td>
+        </tr>
+        <tr data-s="W3-D5-01 use() unwrap promise PolicySummaryCard no loading state">
+          <td class="say">I implemented the summary card with <code>use()</code> and no loading or error state of its own, otherwise this component carries three states and branches on all three even though, by the time it renders at all, the promise has already settled.</td>
+          <td class="con"><span class="cid">W3-D5-01</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/PolicySummaryCard.tsx — <span class="ex">use(getPolicyResource(policyId))</span> <span class="ln">(L79)</span></span></td>
+        </tr>
+        <tr data-s="W3-D5-02 Suspense data cached promise api.ts getPolicyResource infinite fetch loop cache hit">
+          <td class="say">I implemented a promise cache keyed by policy id, otherwise <code>use(fetch(...))</code> starts a fresh request on every render, each settle triggers a render, and the page never commits — an infinite fetch loop with a permanent skeleton.</td>
+          <td class="con"><span class="cid">W3-D5-02</span></td>
+          <td class="file"><span class="path">src/shared/api.ts — <span class="ex">getPolicyResource</span> <span class="ln">(L237)</span></span></td>
+        </tr>
+        <tr data-s="W3-D5-03 use(AuthContext) conditional context read lapsed cancelled reinstatement role switch">
+          <td class="say">I implemented the auth read as <code>use(AuthContext)</code> inside the lapsed branch, otherwise <code>useAuth()</code> at the top subscribes every policy card to the role — so switching role re-renders all 140 of them including the ~85% that never show a role-gated line.</td>
+          <td class="con"><span class="cid">W3-D5-03</span><span class="cid">W2-D2-04</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/PolicySummaryCard.tsx — <span class="ex">use(AuthContext)</span> <span class="ln">(L100)</span></span></td>
+        </tr>
+        <tr data-s="W3-D5-04 Suspense ErrorBoundary together nesting order RiskExposurePanel rejected promise">
+          <td class="say">I implemented the boundary <em>outside</em> the Suspense, in that order, otherwise a promise that is pending and then rejects has either no fallback for its pending phase or nowhere for its rejection to land — and the user gets a blank flash instead of a skeleton followed by an error.</td>
+          <td class="con"><span class="cid">W3-D5-04</span><span class="cid">W3-D3-03</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/RiskExposureWidget.tsx — <span class="ex">RiskExposurePanel</span> <span class="ln">(L57)</span></span></td>
+        </tr>
+        <tr data-s="W2-D1-04 useEffect cleanup interval clearInterval renewal countdown unmounted">
+          <td class="say">I implemented <code>clearInterval</code> in the effect's cleanup, otherwise every policy you open leaves its countdown ticking forever behind the one on screen — five policies in a session, five intervals calling setState on components that no longer exist.</td>
+          <td class="con"><span class="cid">W2-D1-04</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useRenewalCountdown.ts — <span class="ex">useRenewalCountdown</span> <span class="ln">(L76)</span></span><span class="path">src/routes/policyDetail/RenewalCountdown.tsx — <span class="ex">RenewalCountdown</span> <span class="ln">(L26)</span></span></td>
+        </tr>
+        <tr data-s="W2-D2-02 useRef mutable no re-render lastActivityRef mousemove idle">
+          <td class="say">I implemented the last-activity timestamp as a ref, not state, otherwise it is written at pointer frequency and the whole detail page re-renders dozens of times a second while the mouse simply rests on it.</td>
+          <td class="con"><span class="cid">W2-D2-02</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useRenewalCountdown.ts — <span class="ex">lastActivityRef</span> <span class="ln">(L82)</span></span></td>
+        </tr>
+        <tr data-s="W3-D3-03 per tab Suspense boundary countdown restart App.tsx nested">
+          <td class="say">I implemented a <code>&lt;Suspense&gt;</code> per <em>tab</em> as well as per route, otherwise clicking Claims unmounts the policy header, the countdown and the tab nav — including the link you just clicked — and the countdown restarts from scratch on every tab switch.</td>
+          <td class="con"><span class="cid">W3-D3-03</span></td>
+          <td class="file"><span class="path">src/App.tsx — <span class="ex">nested BoundedRoute per tab</span> <span class="ln">(L146–181)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE — the cache proof is the ratio of these two</b>
+      <div>[api] → GET /policies/POL-00024/detail   <i>← exactly ONE per policy per session</i></div>
+      <div>[api] ← GET /policies/POL-00024/detail</div>
+      <div>[api] ⤳ cache hit /policies/POL-00024/detail   <i>← every tab click, every re-render</i></div>
+      <div>[render] PolicySummaryCard POL-00024           <i>← climbs; the → line does not</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 4 ============================ -->
+<section class="stop" id="s4">
+  <h2><span class="n">4</span><span class="route">/policies/POL-00015/claims</span><span class="what">Claims tab. Active health policy with 3 existing claims — enough rows that the scroll-to-new-row is visible. Fetch, abort, modal, portal, optimistic write.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Navigate to <code>POL-00015</code> → <code>Claims</code>. Three claims load.</li>
+        <li>Go back to /policies, open <code>POL-00021</code>, click Claims, then <b style="display:inline">immediately</b> Back and open <code>POL-00015</code>/Claims again. Console shows <code>[useFetch] cleanup — aborting in-flight request</code>.</li>
+        <li>Click <code>Log claim</code>. Note that focus is already in the first field — do not touch the mouse, just type.</li>
+        <li>Press <kbd>Esc</kbd> — closes, and focus lands back on the Log claim button. Reopen it.</li>
+        <li>Click <code>Submit claim</code> with both fields empty. Two inline errors appear, one per field.</li>
+        <li>Fill amount <code>250000</code>, description <code>Hospitalisation, 4 nights</code>. Submit. The row appears <b style="display:inline">instantly</b> reading "Submitting…", the modal closes, the table scrolls to it, and ~600ms later it settles to a real claim id with a toast.</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W2-D1-02 W3-D2-04 useFetch dependency driven refetch policyId router reuses tab">
+          <td class="say">I implemented the claims load as an effect keyed on the policy id, otherwise switching to another policy's Claims tab leaves the previous policy's claims on screen under the new policy's heading — Router reuses the same component instance, so nothing unmounts to tell you.</td>
+          <td class="con"><span class="cid">W2-D1-02</span><span class="cid">W3-D2-04</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useFetch.ts — <span class="ex">useFetch</span> <span class="ln">(L50)</span></span><span class="path">src/routes/policyDetail/PolicyClaimsTab.tsx — <span class="ex">useFetch call site</span> <span class="ln">(L110)</span></span></td>
+        </tr>
+        <tr data-s="W2-D1-03 AbortController cleanup abort race in-flight wrong policy claims">
+          <td class="say">I implemented <code>controller.abort()</code> in the effect's cleanup, otherwise clicking two policies faster than the network leaves both requests racing and whichever settles last wins — so you can end up reading POL-00021's claims under POL-00015's header.</td>
+          <td class="con"><span class="cid">W2-D1-03</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useFetch.ts — <span class="ex">cleanup → controller.abort()</span> <span class="ln">(L85–88)</span></span></td>
+        </tr>
+        <tr data-s="W2-D2-01 useRef DOM focus Modal containerRef focusFirst autofocus keyboard">
+          <td class="say">I implemented a DOM ref and an explicit focus call on open, otherwise focus stays wherever it was on the page and a keyboard user's next Tab lands on a sidebar link sitting behind the overlay.</td>
+          <td class="con"><span class="cid">W2-D2-01</span></td>
+          <td class="file"><span class="path">src/shared/components/Modal.tsx — <span class="ex">containerRef / focusFirst</span> <span class="ln">(L68, L76)</span></span></td>
+        </tr>
+        <tr data-s="W3-D4-05 W3-D4-06 forwardRef useImperativeHandle ModalHandle open close focusFirst">
+          <td class="say">I implemented <code>forwardRef</code> plus <code>useImperativeHandle</code> to expose open/close/focusFirst, otherwise the only way to open a modal from a button elsewhere is a boolean prop threaded down from a parent's state and duplicated at every trigger site.</td>
+          <td class="con"><span class="cid">W3-D4-05</span><span class="cid">W3-D4-06</span></td>
+          <td class="file"><span class="path">src/shared/components/Modal.tsx — <span class="ex">forwardRef&lt;ModalHandle&gt;</span> <span class="ln">(L63)</span></span><span class="path">src/shared/components/Modal.tsx — <span class="ex">useImperativeHandle</span> <span class="ln">(L80)</span></span></td>
+        </tr>
+        <tr data-s="C-09 createPortal modal-root sibling overflow hidden clipped dialog toast">
+          <td class="say">I implemented the dialog and the toast as portals to a sibling of <code>#root</code>, otherwise a dialog mounted inside the panel that opened it is clipped by that panel's own overflow and stacking context — it renders pinned inside a card instead of centred over the page.</td>
+          <td class="con"><span class="cid">C-09</span></td>
+          <td class="file"><span class="path">src/shared/components/Modal.tsx — <span class="ex">createPortal</span> <span class="ln">(L137)</span></span><span class="path">src/shared/components/Toast.tsx — <span class="ex">createPortal</span> <span class="ln">(L70)</span></span></td>
+        </tr>
+        <tr data-s="C-06 useActionState ClaimForm FormData per field errors validation returned state">
+          <td class="say">I implemented the submit as a <code>useActionState</code> action that reads <code>FormData</code> and returns per-field errors, otherwise every form hand-rolls its own <code>submitting</code> plus <code>formError</code> pair and reconstructs "validation errors are just state" from scratch at each call site.</td>
+          <td class="con"><span class="cid">C-06</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/PolicyClaimsTab.tsx — <span class="ex">ClaimForm / useActionState</span> <span class="ln">(L262)</span></span></td>
+        </tr>
+        <tr data-s="C-05 useOptimistic optimisticClaims submitting pending row rollback 400 900ms">
+          <td class="say">I implemented an optimistic row over the real claims array, otherwise you stare at an unchanged table for the full 400–900ms round trip with nothing distinguishing "in flight" from "did nothing" — long enough that the instinct is to press Submit again.</td>
+          <td class="con"><span class="cid">C-05</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/PolicyClaimsTab.tsx — <span class="ex">useOptimistic</span> <span class="ln">(L137)</span></span></td>
+        </tr>
+        <tr data-s="C-10 flushSync scrollIntoView lastRowRef append batched DOM one row short">
+          <td class="say">I implemented <code>flushSync</code> around the append before scrolling, otherwise <code>scrollIntoView</code> runs against the DOM from before the new row existed and scrolls you to the previous last row — one row short of the thing you just created.</td>
+          <td class="con"><span class="cid">C-10</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/PolicyClaimsTab.tsx — <span class="ex">flushSync(...)</span> <span class="ln">(L164)</span></span></td>
+        </tr>
+        <tr data-s="W1-05 W1-06 immutable array update functional updater setAppended prev spread">
+          <td class="say">I implemented the append as an immutable functional update, otherwise pushing into the existing array leaves the reference unchanged, React's bail-out check sees nothing new, and the claim you just logged never appears in the table at all.</td>
+          <td class="con"><span class="cid">W1-05</span><span class="cid">W1-06</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/PolicyClaimsTab.tsx — <span class="ex">setAppended((prev) =&gt; […prev, claim])</span> <span class="ln">(L165)</span></span></td>
+        </tr>
+        <tr data-s="W2-D1-01 qualified mount only fetch empty deps [] no fetch exists honest gap">
+          <td class="say">This one I will qualify rather than claim: there is no literal <code>[]</code>-deps <em>fetch</em> anywhere in the app, because writing one here would ship the exact bug this hook prevents — POL-00015's claims shown forever under every other policy. The <code>[]</code>-deps effects that <em>are</em> real are the countdown's interval and this modal's keydown listener.</td>
+          <td class="con"><span class="cid q">W2-D1-01 [~]</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useFetch.ts — <span class="ex">useFetch (deps = [policyId])</span> <span class="ln">(L50)</span></span></td>
+        </tr>
+        <tr data-s="C-07 useFormStatus qualified unobservable here modal closes before await pending">
+          <td class="say">Also qualified here, and I will say why before you ask: <code>SubmitButton</code> reads <code>useFormStatus</code>, but this form's handler closes the modal on its first line — before the await — so the button unmounts before "Submitting…" can render. Closing immediately is correct here, because the optimistic row <em>is</em> the feedback. The observable call site is stop 6.</td>
+          <td class="con"><span class="cid q">C-07 [~]</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/PolicyClaimsTab.tsx — <span class="ex">handleLogClaim → modalRef.close()</span> <span class="ln">(L143)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE</b>
+      <div>[chunk] ↓ PolicyClaimsTab (render)</div>
+      <div>[api] → GET /policies/POL-00015/claims</div>
+      <div>[useFetch] cleanup — aborting in-flight request   <i>← the fast double-navigate</i></div>
+      <div>[api] ✕ GET /policies/POL-00021/claims aborted</div>
+      <div>[api] → POST /claims        <i>← on submit; the row was already on screen</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 5 ============================ -->
+<section class="stop" id="s5">
+  <h2><span class="n">5</span><span class="route">/quote</span><span class="what">Quote wizard. Four steps, one reducer, a sticky premium bar that measures its own dock position. All of Week 2 day 3 lives here.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Sidebar → <code>New quote</code>. You land on the Applicant step.</li>
+        <li>Type a city. Click <code>Add insured party</code> twice. Point at the three "Full name" labels — each focuses its <em>own</em> field. Click each label to prove it.</li>
+        <li><code>Next</code> → Risk. Change <em>Sum insured</em>. The sticky bar's premium changes <b style="display:inline">in the same frame</b> and shows <code>▲ was ₹…</code>.</li>
+        <li><code>Next</code> → Coverage, tick two optional riders. Watch the premium move again.</li>
+        <li><code>Next</code> → Review. Now <b style="display:inline">refresh the browser</b>. You come back on Review with everything intact.</li>
+        <li>Lab panel → tick <code>useEffect instead of useLayoutEffect…</code>, then reload /quote — the premium bar starts at the top of the page and jumps down a frame later.</li>
+        <li>Lab panel → tick <code>Mutating reducer state</code> → Applicant → <code>Add insured party</code> → nothing happens → click Next then Back → <b style="display:inline">two</b> rows appear.</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W2-D3-01 useReducer quoteReducer actions dispatch state machine switch">
+          <td class="say">I implemented the wizard as a reducer, otherwise the cross-step dependencies — coverage options depend on the type chosen two steps earlier — need four components' worth of setters kept in sync by hand instead of one auditable switch.</td>
+          <td class="con"><span class="cid">W2-D3-01</span></td>
+          <td class="file"><span class="path">src/shared/store/QuoteContext.tsx — <span class="ex">quoteReducer</span> <span class="ln">(L122)</span></span></td>
+        </tr>
+        <tr data-s="W2-D3-03 useReducer lazy init third argument initQuoteDraft localStorage rehydrate refresh">
+          <td class="say">I implemented the draft rehydration as <code>useReducer</code>'s third argument, otherwise the <code>localStorage</code> read and a blank-quote construction run on every render of the provider instead of once — and if the provider ever remounts, an in-progress draft is silently thrown away.</td>
+          <td class="con"><span class="cid">W2-D3-03</span></td>
+          <td class="file"><span class="path">src/shared/store/QuoteContext.tsx — <span class="ex">useReducer(quoteReducer, undefined, initQuoteDraft)</span> <span class="ln">(L220)</span></span></td>
+        </tr>
+        <tr data-s="W2-D3-04 QuoteProvider reducer context global state steps consumed">
+          <td class="say">I implemented the reducer behind a provider consumed by all four real steps, otherwise the reducer is exported code nothing calls and the purity defect below would need a synthetic demo instead of firing from a real screen.</td>
+          <td class="con"><span class="cid">W2-D3-04</span></td>
+          <td class="file"><span class="path">src/shared/store/QuoteContext.tsx — <span class="ex">QuoteProvider</span> <span class="ln">(L219)</span></span></td>
+        </tr>
+        <tr data-s="W2-D3-02 reducer purity mutating lab defect ADD_INSURED Object.is bail out StrictMode double">
+          <td class="say">I implemented the purity violation as a toggle, otherwise "reducers must be pure" is just a rule I recited — with it on, the mutation returns the same object, <code>Object.is</code> says nothing changed, the row never appears, and when you force a re-render <b style="display:inline">two</b> rows show up because StrictMode double-invoked the impure reducer.</td>
+          <td class="con"><span class="cid">W2-D3-02</span></td>
+          <td class="file"><span class="path">src/shared/store/QuoteContext.tsx — <span class="ex">case 'ADD_INSURED'</span> <span class="ln">(L154)</span></span></td>
+        </tr>
+        <tr data-s="W1-11 controlled inputs value dispatch quote draft persists refresh">
+          <td class="say">I implemented every field as a controlled input reading from reducer state, otherwise what is on screen and what gets written to storage can diverge — you would refresh and find the draft is not the one you were looking at.</td>
+          <td class="con"><span class="cid">W1-11</span></td>
+          <td class="file"><span class="path">src/routes/QuoteWizardPage.tsx — <span class="ex">ApplicantStep / RiskStep / CoverageStep</span> <span class="ln">(L134, L231, L278)</span></span></td>
+        </tr>
+        <tr data-s="W2-D1-07 effect vs derived state estimateIndicativePremium render body no useState useEffect">
+          <td class="say">I implemented the indicative premium as a plain value computed in the render body, otherwise a <code>useState</code> plus <code>useEffect</code> pair renders every edit twice — once with the stale number, once after the effect catches up — a visible flash of the old premium on every keystroke.</td>
+          <td class="con"><span class="cid">W2-D1-07</span></td>
+          <td class="file"><span class="path">src/routes/QuoteWizardPage.tsx — <span class="ex">estimateIndicativePremium</span> <span class="ln">(L65, called at L101)</span></span></td>
+        </tr>
+        <tr data-s="W2-D2-03 usePrevious ref previous value pattern was delta premium flicker">
+          <td class="say">I implemented the "was ₹X" delta with a ref written during render, otherwise the <code>useState</code>+<code>useEffect</code> version shows the new premium next to a not-yet-updated "previous" for one frame — a stale delta flashing on every change.</td>
+          <td class="con"><span class="cid">W2-D2-03</span></td>
+          <td class="file"><span class="path">src/shared/hooks/usePrevious.ts — <span class="ex">usePrevious</span> <span class="ln">(L26)</span></span><span class="path">src/routes/quoteWizard/StickyPremiumSummary.tsx — <span class="ex">previousPremium</span> <span class="ln">(L73)</span></span></td>
+        </tr>
+        <tr data-s="W3-D4-04 useLayoutEffect vs useEffect flicker sticky premium bar measurement paint jump">
+          <td class="say">I implemented the dock measurement in <code>useLayoutEffect</code> so it lands before paint, otherwise — and the toggle shows this live — the browser paints once at the fallback offset and corrects a frame later, so the premium bar visibly starts at the top of the page and jumps down.</td>
+          <td class="con"><span class="cid">W3-D4-04</span></td>
+          <td class="file"><span class="path">src/routes/quoteWizard/StickyPremiumSummary.tsx — <span class="ex">StickyPremiumSummary</span> <span class="ln">(L70)</span></span></td>
+        </tr>
+        <tr data-s="C-01 useId TextField repeated fieldset insured party duplicate id label focuses wrong input">
+          <td class="say">I implemented the field id with <code>useId</code>, otherwise three insured-party rows share one hard-coded id and every label but the first focuses the wrong input — click "Full name" on the third party and the cursor lands in the first.</td>
+          <td class="con"><span class="cid">C-01</span></td>
+          <td class="file"><span class="path">src/shared/components/TextField.tsx — <span class="ex">useId()</span> <span class="ln">(L33)</span></span></td>
+        </tr>
+        <tr data-s="W2-D2-06 qualified split context state dispatch inert no dispatch-only consumer">
+          <td class="say">Qualified, and I will raise it myself: the state/dispatch split is correct and saves exactly zero renders here — all five steps read both contexts, and even a dispatch-only one would re-render anyway because the page reads state and renders the steps as children. I left it honest rather than inventing a dispatch-only component to make the row look good.</td>
+          <td class="con"><span class="cid q">W2-D2-06 [~]</span></td>
+          <td class="file"><span class="path">src/shared/store/QuoteContext.tsx — <span class="ex">QuoteStateContext / QuoteDispatchContext</span> <span class="ln">(L216–217)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE — only with the layout-effect toggle on</b>
+      <div>[StickyPremiumSummary] useLayoutEffect corrected top: 0px → 118.0px, 0.31ms after commit (before paint)</div>
+      <div>[StickyPremiumSummary] useEffect corrected top: 0px → 118.0px, 17.8ms after commit (after paint — the fallback was already on screen)</div>
+      <div><i>Point at the two parenthetical phrases. That is the whole concept.</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 6 ============================ -->
+<section class="stop" id="s6">
+  <h2><span class="n">6</span><span class="route">/claims/new</span><span class="what">Claim intake. A component-level split behind a modal — the wizard chunk does not exist until you open it. This is the one place useFormStatus is observable.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Sidebar → <code>New claim</code>. <b style="display:inline">Before clicking anything else</b>, point at the console: there is no <code>ClaimIntakeWizard</code> chunk line. Say "the wizard is not downloaded yet."</li>
+        <li>Click <code>Start a claim</code>. <b style="display:inline">Now</b> the chunk line appears, with a skeleton inside the dialog for a beat.</li>
+        <li>Step 1: pick a policy from the list. Try <code>Continue</code> with nothing picked first — one error line.</li>
+        <li>Step 2: enter an amount <b style="display:inline">larger than the sum insured</b> shown on the review. It refuses with the real limit in the message.</li>
+        <li>Step 3 (Review): press <code>Submit claim</code> and <b style="display:inline">stop talking and watch the button</b>. For 400–900ms it reads "Submitting…" and Back is disabled. That is the whole of C-07.</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W3-D3-02 component level React.lazy ClaimIntakeWizard modal chunk not loaded until open">
+          <td class="say">I implemented a component-level split at the modal boundary, otherwise the wizard's step machine, its validation and its searchable index over all 140 policies ship inside this route's chunk and are parsed by everyone who reads the page and leaves.</td>
+          <td class="con"><span class="cid">W3-D3-02</span></td>
+          <td class="file"><span class="path">src/routes/ClaimIntakePage.tsx — <span class="ex">ClaimIntakeWizardChunk = splitChunk(...)</span> <span class="ln">(L71)</span></span></td>
+        </tr>
+        <tr data-s="W3-D3-02 module scope lazy not in render body remount lose fields keystroke">
+          <td class="say">I declared that split at module scope rather than inside the component, otherwise <code>lazy()</code> returns a brand-new component type on every render, React unmounts and re-suspends, and the wizard loses every field the agent has typed — on every keystroke.</td>
+          <td class="con"><span class="cid">W3-D3-02</span></td>
+          <td class="file"><span class="path">src/routes/ClaimIntakePage.tsx — <span class="ex">module-scope declaration</span> <span class="ln">(L71)</span></span></td>
+        </tr>
+        <tr data-s="C-07 useFormStatus SubmitButton WizardNavButton pending disabled no prop threading">
+          <td class="say">I implemented the pending state as a <code>useFormStatus</code> read local to the form's descendants, otherwise every form threads a <code>pending</code> prop down from whoever owns the action — and the submit button can no longer be one shared component, because "pending" would mean something different per parent.</td>
+          <td class="con"><span class="cid">C-07</span></td>
+          <td class="file"><span class="path">src/shared/components/SubmitButton.tsx — <span class="ex">SubmitButton</span> <span class="ln">(L35)</span></span><span class="path">src/routes/claimIntake/ClaimIntakeWizard.tsx — <span class="ex">WizardNavButton</span> <span class="ln">(L363)</span></span></td>
+        </tr>
+        <tr data-s="C-06 useActionState ClaimIntakeWizard submitAction async error returned state validate ahead">
+          <td class="say">I implemented this form's submit as a <code>useActionState</code> action too, but deliberately shaped differently — every field is already validated by the time Review is reachable, so the only error this action can return is the write itself failing, which is the case a <code>useState</code> flag handles worst.</td>
+          <td class="con"><span class="cid">C-06</span></td>
+          <td class="file"><span class="path">src/routes/claimIntake/ClaimIntakeWizard.tsx — <span class="ex">submitAction</span> <span class="ln">(L201)</span></span></td>
+        </tr>
+        <tr data-s="W3-D4-02 ErrorBoundary onRetry reset lazy chunk ClaimIntakeWizardChunk.reset">
+          <td class="say">I wired this boundary's Retry to <code>reset()</code> on the chunk, otherwise the failed import is remembered on the lazy component at module scope and the boundary's remount reads the same rejection straight back — the button clears the fallback for one frame and re-throws.</td>
+          <td class="con"><span class="cid">W3-D4-02</span></td>
+          <td class="file"><span class="path">src/routes/ClaimIntakePage.tsx — <span class="ex">onRetry={ClaimIntakeWizardChunk.reset}</span> <span class="ln">(L108)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE — the silence before the click is the evidence</b>
+      <div>[chunk] ↓ ClaimIntakePage (render)         <i>← on arriving at the route</i></div>
+      <div><i>…nothing. No ClaimIntakeWizard line yet.</i></div>
+      <div>[chunk] ↓ ClaimIntakeWizard (render)      <i>← only after "Start a claim"</i></div>
+      <div>[api] → POST /claims                      <i>← on Submit; button reads "Submitting…" for this whole gap</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 7 ============================ -->
+<section class="stop" id="s7">
+  <h2><span class="n">7</span><span class="route">/underwriting</span><span class="what">The protected route. Blocked as an agent, allowed as an underwriter, and the dashboard explains the bounce.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Confirm the header says <code>Viewing as: Agent</code>.</li>
+        <li><b style="display:inline">Type</b> <code>/underwriting</code> into the address bar — do not use the sidebar. Enter.</li>
+        <li>You land on the Dashboard, and it names the path you were blocked from.</li>
+        <li>Press browser <b style="display:inline">Back</b>. You do <em>not</em> bounce round the redirect again.</li>
+        <li>Header → <code>Underwriter</code>. Now click the sidebar's <code>Underwriting</code> — it renders, and greets you by name.</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W2-D4-09 protected private route wrapper RequireRole hiding a link is not access control">
+          <td class="say">I implemented a route wrapper rather than hiding the nav link, otherwise anyone who types the URL walks straight in — hiding a link is not access control, it is decoration.</td>
+          <td class="con"><span class="cid">W2-D4-09</span></td>
+          <td class="file"><span class="path">src/shared/routes/RequireRole.tsx — <span class="ex">RequireRole</span> <span class="ln">(L29)</span></span></td>
+        </tr>
+        <tr data-s="W2-D2-05 useContext useAuth role gated consumption">
+          <td class="say">I implemented the role check as a context read at the gate, otherwise the route table special-cases this path inline and every future protected route repeats the same comparison with its own chance to get it backwards.</td>
+          <td class="con"><span class="cid">W2-D2-05</span></td>
+          <td class="file"><span class="path">src/shared/routes/RequireRole.tsx — <span class="ex">useAuth()</span> <span class="ln">(L30)</span></span></td>
+        </tr>
+        <tr data-s="W2-D4-06 useNavigate replace true history back loop redirect">
+          <td class="say">I implemented the redirect with <code>replace: true</code>, otherwise the blocked attempt sits in browser history and pressing Back from the dashboard bounces you straight into the redirect again — a loop you can only escape by closing the tab.</td>
+          <td class="con"><span class="cid">W2-D4-06</span></td>
+          <td class="file"><span class="path">src/shared/routes/RequireRole.tsx — <span class="ex">navigate('/', { replace: true, state })</span> <span class="ln">(L37)</span></span></td>
+        </tr>
+        <tr data-s="W2-D4-08 useLocation attemptedPath location state round trip DashboardPage explains">
+          <td class="say">I implemented a location-state round trip — the gate writes the attempted path, the dashboard reads it — otherwise you land somewhere you did not ask for with no explanation, which reads as a bug rather than a permission boundary.</td>
+          <td class="con"><span class="cid">W2-D4-08</span></td>
+          <td class="file"><span class="path">src/shared/routes/RequireRole.tsx — <span class="ex">writes attemptedPath</span> <span class="ln">(L37)</span></span><span class="path">src/routes/DashboardPage.tsx — <span class="ex">reads location.state</span> <span class="ln">(L26)</span></span></td>
+        </tr>
+        <tr data-s="W2-D2-04 createContext AuthProvider role switcher prop drilling RequireRole not a child">
+          <td class="say">I implemented the role as context, otherwise it prop-drills from <code>main.tsx</code> through App and the layout into every page — and <code>RequireRole</code>, which is not a child of any page, has no way to read it at all.</td>
+          <td class="con"><span class="cid">W2-D2-04</span></td>
+          <td class="file"><span class="path">src/shared/store/AuthContext.tsx — <span class="ex">AuthProvider</span> <span class="ln">(L60)</span></span></td>
+        </tr>
+        <tr data-s="W2-D2-07 useAuth guard throw outside provider defensive not demoed live">
+          <td class="say">I implemented a guard throw in <code>useAuth</code>, otherwise a component rendered outside the provider silently receives <code>null</code> and crashes later, deep inside whatever reads <code>.role</code> off it, with a stack trace pointing at the wrong file. <em>(Defensive — not demoed live without deliberately misplacing a consumer.)</em></td>
+          <td class="con"><span class="cid">W2-D2-07</span></td>
+          <td class="file"><span class="path">src/shared/store/AuthContext.tsx — <span class="ex">useAuth</span> <span class="ln">(L78)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE</b>
+      <div><i>Nothing route-specific here — the underwriting chunk never loads while you are an agent, which is itself the point. Check: no [chunk] ↓ UnderwritingPage line until after the role switch.</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 8 ============================ -->
+<section class="stop" id="s8">
+  <h2><span class="n">8</span><span class="route">/nonsense</span><span class="what">The catch-all. Ten seconds, one point, move on.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK</b>
+      <ol>
+        <li>Address bar → <code>/nonsense</code>. Then try a deeper one: <code>/policies/POL-00001/nope/deeper</code> — it still lands here, not on a half-rendered detail page.</li>
+        <li>Click "Return to the dashboard".</li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W2-D4-10 404 catch-all NotFoundPage unmatched path blank content region">
+          <td class="say">I implemented a <code>*</code> catch-all, otherwise an unmatched path renders nothing at all inside the layout shell — an empty content region that is indistinguishable from the route table being broken.</td>
+          <td class="con"><span class="cid">W2-D4-10</span></td>
+          <td class="file"><span class="path">src/routes/NotFoundPage.tsx — <span class="ex">NotFoundPage</span> <span class="ln">(L20)</span></span><span class="path">src/App.tsx — <span class="ex">&lt;Route path="*"&gt;</span> <span class="ln">(L228)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE</b>
+      <div>[chunk] ↓ NotFoundPage (render)   <i>← even the 404 is its own chunk</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 9 ============================ -->
+<section class="stop" id="s9">
+  <h2><span class="n">9</span><span class="route">Lab panel (dev only)</span><span class="what">Seven registered defects behind checkboxes at the bottom of every page. This is where the pitfalls get shown rather than described.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>CLICK — order matters; the crashing one goes last</b>
+      <ol>
+        <li>Scroll to the bottom of any page, expand <code>Lab defects (dev only)</code>. Point out that it is gated on <code>import.meta.env.DEV</code> — a production build does not ship a panel that flips live defects.</li>
+        <li>Tick <code>Object-literal effect dependency</code>. The run counter climbs on its own, hundreds a second, capped at 500. Untick.</li>
+        <li>Tick <code>Stale closure in an interval</code>. Click Increment 4×. "Count" climbs; "Last logged" stays frozen at mount. Untick.</li>
+        <li>Tick <code>Third-party risk feed outage</code>, open any policy. Skeleton → red fallback <b style="display:inline">only inside the Risk exposure panel</b>. Everything around it still works. Press <code>Retry</code> and watch the console for a <b style="display:inline">second</b> <code>[api] →</code>.</li>
+        <li>Tick <code>Claim submission forced to fail</code> → POL-00015 Claims → log a claim: the row appears, then vanishes, and a toast explains. Untick, submit again: it sticks.</li>
+        <li><b style="display:inline">LAST:</b> tick <code>Conditional hook call</code>, click <code>Tick</code> twice. React throws and the tree unmounts. <b style="display:inline">Reload the page to recover.</b></li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W2-D1-05 object literal effect dependency infinite loop EffectDepsDemo Object.is new reference">
+          <td class="say">I implemented the object-literal dependency as a live toggle, otherwise this is only a rule in prose — a fresh <code>{ }</code> in a deps array never looks unchanged to <code>Object.is</code>, so the effect fires, sets state, and fires again, and the tab locks up.</td>
+          <td class="con"><span class="cid">W2-D1-05</span></td>
+          <td class="file"><span class="path">src/shared/labs/EffectDepsDemo.tsx — <span class="ex">EffectDepsDemo</span> <span class="ln">(L20)</span></span></td>
+        </tr>
+        <tr data-s="W2-D1-06 stale closure interval empty deps frozen count last logged StaleClosureDemo">
+          <td class="say">I implemented the stale closure as a toggle, otherwise there is nothing to point at — the interval's callback closes over the count from the render that mounted it, so "Last logged" freezes while the number on screen keeps climbing.</td>
+          <td class="con"><span class="cid">W2-D1-06</span></td>
+          <td class="file"><span class="path">src/shared/labs/StaleClosureDemo.tsx — <span class="ex">StaleClosureDemo</span> <span class="ln">(L19)</span></span></td>
+        </tr>
+        <tr data-s="W3-D2-01 rules of hooks conditional hook call rendered more hooks than previous render crash">
+          <td class="say">I implemented the rules-of-hooks violation as a toggle, otherwise the rule can only be recited — React does not detect it by reading the code, it detects it at runtime by counting hook calls, so the crash needs an actual conditional <code>useState</code> to reproduce.</td>
+          <td class="con"><span class="cid">W3-D2-01</span></td>
+          <td class="file"><span class="path">src/shared/labs/ConditionalHookDemo.tsx — <span class="ex">ConditionalHookDemo</span> <span class="ln">(L22)</span></span></td>
+        </tr>
+        <tr data-s="W3-D4-01 ErrorBoundary class getDerivedStateFromError componentDidCatch white page unmount to root">
+          <td class="say">I implemented a class error boundary, otherwise a component that throws during render unmounts everything above it to the root — the entire console goes white, not just the widget whose vendor is down.</td>
+          <td class="con"><span class="cid">W3-D4-01</span></td>
+          <td class="file"><span class="path">src/shared/components/ErrorBoundary.tsx — <span class="ex">ErrorBoundary</span> <span class="ln">(L104)</span></span></td>
+        </tr>
+        <tr data-s="W3-D4-03 scoped boundary widget fails page survives risk feed outage containment">
+          <td class="say">I implemented the boundary scoped to the widget, otherwise a dead third-party feed takes the policy header, the countdown, the tab nav and whichever tab is open with it — the user came for the coverage schedule and gets a full-page error from an unrelated vendor.</td>
+          <td class="con"><span class="cid">W3-D4-03</span></td>
+          <td class="file"><span class="path">src/routes/policyDetail/RiskExposureWidget.tsx — <span class="ex">RiskExposurePanel</span> <span class="ln">(L57)</span></span></td>
+        </tr>
+        <tr data-s="W3-D4-02 boundary retry key bump eviction clearPolicyResource module scope map decorative button">
+          <td class="say">I implemented Retry as a key bump <em>plus</em> a cache eviction, otherwise clearing the error state alone does nothing — the rejected promise is still in a module-scoped Map that no remount can reach, so the fallback clears for one frame and the same failure comes straight back. That was measurably true here before it was fixed; the eviction is what makes the button real.</td>
+          <td class="con"><span class="cid">W3-D4-02</span></td>
+          <td class="file"><span class="path">src/shared/components/ErrorBoundary.tsx — <span class="ex">handleRetry</span> <span class="ln">(L131)</span></span><span class="path">src/shared/routes/lazyRoutes.tsx — <span class="ex">reset()</span> <span class="ln">(L144)</span></span></td>
+        </tr>
+        <tr data-s="C-05 claim submit failure rollback optimistic row disappears toast lab toggle">
+          <td class="say">I implemented a forced-failure toggle for the claim write, otherwise the optimistic rollback path only runs on bad luck — with it on you can show the row appear, then disappear, on demand, and there is no explicit "remove the optimistic row" line anywhere; React drops it because the real state never grew.</td>
+          <td class="con"><span class="cid">C-05</span></td>
+          <td class="file"><span class="path">src/shared/labs/registry.ts — <span class="ex">'claim-submit-failure'</span> <span class="ln">(L131)</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>CONSOLE — the Retry proof</b>
+      <div>[boundary] ✕ Risk exposure caught: …</div>
+      <div>[boundary] ↻ Risk exposure retry — evicting caches, then remounting</div>
+      <div>[api] → GET /policies/POL-00024/risk-feed   <i>← a SECOND one. Without the eviction there is no second line.</i></div>
+      <div><i>A Retry that silently did nothing would look identical on screen. The console is the only place it shows.</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ STOP 10 ============================ -->
+<section class="stop" id="s10">
+  <h2><span class="n">10</span><span class="route">Terminal</span><span class="what">The things you cannot click to. Run these two commands, point at one line of each.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="do"><b>RUN — both of these were run today; the outputs below are real</b>
+      <ol>
+        <li><code>npx vitest run</code></li>
+        <li><code>npm run build</code></li>
+      </ol>
+    </div>
+    <table>
+      <thead><tr><th>SAY THIS</th><th>CONCEPT</th><th>OPEN IF PUSHED</th></tr></thead>
+      <tbody>
+        <tr data-s="W3-D2-06 testing custom hook fake timers useDebounce useLocalStorage vitest">
+          <td class="say">I implemented hook tests with fake timers, otherwise a debounce regression — a wrong delay, a missing cleanup — ships silently until somebody notices the search box feels wrong and cannot say why.</td>
+          <td class="con"><span class="cid">W3-D2-06</span></td>
+          <td class="file"><span class="path">src/shared/hooks/useDebounce.test.ts <span class="ln">(4 tests)</span></span><span class="path">src/shared/hooks/useLocalStorage.test.ts <span class="ln">(4 tests)</span></span></td>
+        </tr>
+        <tr data-s="W3-D2-07 testing a component PolicyList render assert filter narrows rows">
+          <td class="say">I implemented a render-and-assert test on the list, otherwise whether it actually reflects the array it is handed — versus a stale key or a swapped prop — is only ever trusted by reading the code.</td>
+          <td class="con"><span class="cid">W3-D2-07</span></td>
+          <td class="file"><span class="path">src/routes/policies/PolicyList.test.tsx <span class="ln">(3 tests)</span></span></td>
+        </tr>
+        <tr data-s="W3-D5-05 W3-D3-01 App.test.tsx route walk every route resolves lazy chunk broken import ships">
+          <td class="say">I implemented an automated walk of the route table, otherwise a broken lazy import builds and deploys perfectly cleanly and breaks exactly one page — whichever one nobody opened before shipping. Before splitting, that mistake failed the build; now it does not.</td>
+          <td class="con"><span class="cid">W3-D5-05</span><span class="cid">W3-D3-01</span></td>
+          <td class="file"><span class="path">src/App.test.tsx <span class="ln">(5 tests)</span></span></td>
+        </tr>
+        <tr data-s="W3-D4-02 lazyRoutes.test.tsx negative test reset loader called twice remount does not recover">
+          <td class="say">I implemented a <em>negative</em> test alongside the positive one — it fails the day remounting alone starts recovering a failed chunk — otherwise the passing test would keep passing for the wrong reason after React changes underneath it.</td>
+          <td class="con"><span class="cid">W3-D4-02</span></td>
+          <td class="file"><span class="path">src/shared/routes/lazyRoutes.test.tsx <span class="ln">(3 tests)</span></span><span class="path">src/shared/components/ErrorBoundary.test.tsx <span class="ln">(4 tests)</span></span></td>
+        </tr>
+        <tr data-s="W3-D3-01 vite build separate chunks per route rating.ts moved out of entry chunk">
+          <td class="say">I confirmed the split actually split rather than assuming it — <code>rating.ts</code> moved out of the entry chunk into <code>PoliciesPage</code>'s, which is the single biggest thing this change moves.</td>
+          <td class="con"><span class="cid">W3-D3-01</span><span class="cid">W3-D3-02</span></td>
+          <td class="file"><span class="path">src/shared/routes/lazyRoutes.tsx — <span class="ex">route exports</span> <span class="ln">(L176–218)</span></span></td>
+        </tr>
+        <tr data-s="W1-03 typed props tsc noEmit compile time guarantee shared types">
+          <td class="say">I implemented one shared type per domain concept, otherwise two routes each declare their own idea of "Policy" and the moment one spells a status <code>cancelled</code> and the other <code>canceled</code>, the status filter returns zero rows with no error anywhere. <code>tsc --noEmit</code> runs first in the build script — a type error never reaches a bundle.</td>
+          <td class="con"><span class="cid">W1-03</span></td>
+          <td class="file"><span class="path">src/shared/types.ts — <span class="ex">Policy, Claim, Quote, Coverage, Role</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="console"><b>npx vitest run — POINT AT THE LAST TWO LINES</b>
+      <div> Test Files  6 passed (6)</div>
+      <div>      Tests  23 passed (23)</div>
+      <div><i>6 files: App(5) · PolicyList(3) · useDebounce(4) · useLocalStorage(4) · ErrorBoundary(4) · lazyRoutes(3)</i></div>
+    </div>
+    <div class="console"><b>npm run build — POINT AT PoliciesPage-*.js, THEN AT index-*.js</b>
+      <div>✓ 421 modules transformed.</div>
+      <div>dist/assets/NotFoundPage-CF2zuzPE.js        0.23 kB</div>
+      <div>dist/assets/UnderwritingPage-3xlqxN5B.js    0.27 kB</div>
+      <div>dist/assets/DashboardPage-BbHy0b0E.js       0.46 kB</div>
+      <div>dist/assets/PolicyCoverageTab-CCn3RZ8R.js   0.63 kB</div>
+      <div>dist/assets/PolicyDocumentsTab-m83ldsGY.js  0.64 kB</div>
+      <div>dist/assets/ClaimIntakePage-DavKHwxq.js     1.73 kB</div>
+      <div>dist/assets/ClaimIntakeWizard-DZ2Gx33r.js   4.82 kB   <i>← the modal-only split</i></div>
+      <div>dist/assets/PolicyClaimsTab-BRrvSgfv.js     4.88 kB</div>
+      <div>dist/assets/PolicyDetailPage-DsVHxqNc.js    5.33 kB</div>
+      <div>dist/assets/QuoteWizardPage-DLqkQAHD.js     6.93 kB</div>
+      <div>dist/assets/PoliciesPage-C-FITz2A.js       12.37 kB   <i>← rating.ts lives HERE, not in the entry</i></div>
+      <div>dist/assets/index-C6I_r3Kk.js            271.87 kB   <i>← React + router + seed data (see D4)</i></div>
+      <div>✓ built in 2.66s</div>
+    </div>
+    <div class="warn"><b>IF ASKED WHY THE ENTRY CHUNK IS STILL 272 kB</b>
+      Two reasons, and I know both. Most of it is React + React DOM + Router. The rest is <code>src/shared/data</code>, which did <b>not</b> split — <code>AppLayout</code> renders on every route and imports <code>AS_OF</code> from it, and a module reachable from a statically-imported component cannot be lazily chunked. One innocuous import in shared chrome un-splits everything below it. That is written down in <code>lazyRoutes.tsx</code>'s header rather than quietly omitted, because it is the most common way this concept fails in practice.
+    </div>
+  </div>
+</section>
+
+<!-- ============================ QUALIFIED ============================ -->
+<section class="panel" id="p-qual">
+  <h2><span>⚑ QUALIFIED CLAIMS — RAISE THESE FIRST</span><span class="what">5 of 83 rows are <code>[~]</code>, not <code>[x]</code>. Say them before he finds them; the count is the credibility.</span><span class="caret"></span></h2>
+  <div class="body">
+    <p style="color:var(--dim);font-size:15.5px;margin:12px 0 4px">Opening line: <em>"Before you go looking — 78 of 83 rows are solid and five are qualified. I downgraded them myself in an audit after the build was finished, when I stopped asking 'does the file exist and can I click to it' and started asking 'can the mechanism be observed doing anything'. Here they are."</em></p>
+
+    <div class="item">
+      <h3><span class="cid q">W3-D1-02</span><span class="t"><code>React.memo</code> with a custom comparator</span></h3>
+      <p><b>BUILT</b> <code>PremiumBadge</code> is memoised with a comparator that compares the <em>formatted</em> currency string, so a premium moving by a paisa would not re-render a badge whose text is identical.</p>
+      <p><b>WHY WEAK</b> The comparator can never run. <code>PremiumBadge</code> is rendered only by <code>PolicyRow</code>, which is itself memoised on a referentially stable premium — a parent that bails out never renders its child. Measured in <code>docs/render-counts.md</code>. And it would lose if it did run: two <code>formatCurrency</code> calls to skip a render that makes one, which is the exact argument I make one file away for leaving <code>FilterStatus</code> un-memoised.</p>
+      <p><b>WHY HONEST</b> Making it fire needs a second <code>rateBook</code> pass pricing the same policy — a feature the app has no reason to have. The genuinely better edit is to <em>delete</em> the comparator and let shallow compare on <code>amount</code> do the job; I left it and wrote down why, because deleting it would have quietly removed the row.</p>
+    </div>
+
+    <div class="item">
+      <h3><span class="cid q">W2-D2-06</span><span class="t">Split context — state vs. dispatch</span></h3>
+      <p><b>BUILT</b> Two separate contexts over one reducer, so a component needing only <code>dispatch</code> does not re-render when someone else's keystroke changes state.</p>
+      <p><b>WHY WEAK</b> Saves zero renders here. All five wizard steps call both hooks, so there is no dispatch-only subscriber to spare. It would still save zero if one existed — <code>QuoteWizardPage</code> reads state and renders the steps as its own children, so a state change re-renders them regardless of which contexts they read. Cashing the split in additionally needs <code>React.memo</code> on the steps.</p>
+      <p><b>WHY HONEST</b> The fix is to invent a dispatch-only component the wizard does not want, and memoise steps that do not need it. That is a change made for the matrix, not for the app.</p>
+    </div>
+
+    <div class="item">
+      <h3><span class="cid q">W3-D1-04</span><span class="t"><code>useMemo</code> on a context value</span></h3>
+      <p><b>BUILT</b> <code>AuthProvider</code>'s value is memoised on <code>[role, switchRole]</code>, with <code>useCallback</code> on <code>switchRole</code> beside it.</p>
+      <p><b>WHY WEAK</b> The bail-out branch is unreachable in this tree. <code>role</code> is the provider's only state and nothing above it re-renders, so the provider re-renders exactly when <code>role</code> changes — which is exactly when the value must change anyway. The general hazard is real; it does not currently apply here, and the file's header used to state it as though it did.</p>
+      <p><b>WHY HONEST</b> Making it observable needs a second piece of state in the provider, or a re-rendering ancestor. Both would be invented. It stays because it is correct-by-construction the moment either appears — and the <code>useCallback</code> next to it <em>is</em> load-bearing today.</p>
+    </div>
+
+    <div class="item">
+      <h3><span class="cid q">C-07</span><span class="t"><code>useFormStatus</code> — one of two call sites is unobservable</span></h3>
+      <p><b>BUILT</b> A shared <code>SubmitButton</code> reading <code>useFormStatus()</code>, used by both the intake wizard and the Claims-tab quick form, plus <code>WizardNavButton</code> and <code>FormCancelButton</code> reading the same status.</p>
+      <p><b>WHY WEAK</b> Only the wizard shows it. <code>PolicyClaimsTab.handleLogClaim</code> closes the modal on its first line — before the <code>await</code> — so the whole form unmounts before <code>pending</code> can render. Demo it on stop 6, never on stop 4.</p>
+      <p><b>WHY HONEST</b> The fix is keeping the modal open until the action settles, which would cover the optimistic row underneath that <em>is</em> the actual feedback. The two features are in genuine tension and the hook loses. I recorded that rather than reordering the code to make one row look better at the expense of the UX.</p>
+    </div>
+
+    <div class="item">
+      <h3><span class="cid q">W2-D1-01</span><span class="t">Mount-only fetch (<code>[]</code> deps)</span></h3>
+      <p><b>BUILT</b> <code>useFetch</code>'s effect keyed on the caller's deps — <code>[policyId]</code> for the claims tab — which does run exactly once on the tab's first mount.</p>
+      <p><b>WHY WEAK</b> That is the mount case, but it is an argument for <em>not</em> building the row, not a demonstration of it. No <code>[]</code>-deps <em>fetch</em> exists anywhere in the app.</p>
+      <p><b>WHY HONEST</b> Adding one to the claims tab ships the precise bug the hook exists to prevent: Router reuses the tab instance across <code>:id</code> changes, so POL-1's claims would show under every policy forever. <code>[]</code>-deps effects that are not fetches are real and solid — the countdown's interval and the modal's keydown listener.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ TERMINAL-ONLY ============================ -->
+<section class="panel" id="p-term">
+  <h2><span>▸ TERMINAL-ONLY</span><span class="what">Concepts with no click path. Exact commands, and the one line to point at.</span><span class="caret"></span></h2>
+  <div class="body">
+    <div class="item">
+      <h3><span class="cid">W3-D3-01</span><span class="cid">W3-D3-02</span><span class="t">Route-level and component-level code splitting</span></h3>
+      <p><b>COMMAND</b> <code>npm run build</code></p>
+      <p><b>POINT AT</b> <code>dist/assets/PoliciesPage-C-FITz2A.js  12.37 kB</code> — say <em>"the rating engine is in there, not in the entry chunk."</em> Then <code>dist/assets/ClaimIntakeWizard-DZ2Gx33r.js  4.82 kB</code> — <em>"and that one only downloads when the modal opens."</em></p>
+      <p><b>IF PUSHED</b> <code>dist/assets/index-C6I_r3Kk.js  271.87 kB</code> — React, Router, and <code>shared/data</code>, which did not split. Reason is in <code>lazyRoutes.tsx</code>'s header. Volunteer it; do not wait to be asked.</p>
+    </div>
+    <div class="item">
+      <h3><span class="cid">W3-D2-06</span><span class="cid">W3-D2-07</span><span class="t">Hook tests and component tests</span></h3>
+      <p><b>COMMAND</b> <code>npx vitest run</code> — never <code>--watch</code>; watch mode is unreliable in the WebContainer.</p>
+      <p><b>POINT AT</b> the last two lines: <code>Test Files 6 passed (6)</code> / <code>Tests 23 passed (23)</code>.</p>
+      <p><b>BREAKDOWN</b> <code>useDebounce.test.ts</code> 4 · <code>useLocalStorage.test.ts</code> 4 (both fake timers, W3-D2-06) · <code>PolicyList.test.tsx</code> 3 (W3-D2-07) · <code>App.test.tsx</code> 5 · <code>ErrorBoundary.test.tsx</code> 4 · <code>lazyRoutes.test.tsx</code> 3.</p>
+    </div>
+    <div class="item">
+      <h3><span class="cid">W3-D4-02</span><span class="t">ErrorBoundary retry + lazy chunk reset</span></h3>
+      <p><b>COMMAND</b> <code>npx vitest run src/shared/routes/lazyRoutes.test.tsx src/shared/components/ErrorBoundary.test.tsx</code></p>
+      <p><b>POINT AT</b> the two suites passing (3 + 4 tests). The one worth naming out loud is the <b>negative</b> test — it asserts that a remount alone does <em>not</em> recover a failed chunk, so it fails the day that stops being true and the positive test starts passing for the wrong reason.</p>
+      <p><b>THE STORY</b> This row was measurably false before it was fixed, not merely inert: a probe recorded one import attempt before Retry and one after, so every route-level Retry button was decorative. I fixed it rather than downgrading it, because the fix was available. That is the difference between this row and the five above.</p>
+    </div>
+    <div class="item">
+      <h3><span class="cid">W3-D5-05</span><span class="t">Every route still resolves</span></h3>
+      <p><b>COMMAND</b> <code>npx vitest run src/App.test.tsx</code></p>
+      <p><b>POINT AT</b> <code>✓ src/App.test.tsx (5 tests)</code>. Each assertion waits for content from <em>inside</em> the lazy chunk, not from the layout — asserting on the sidebar would pass with every route module broken.</p>
+    </div>
+    <div class="item">
+      <h3><span class="cid">W1-03</span><span class="t">Typed props / shared domain types</span></h3>
+      <p><b>COMMAND</b> <code>npx tsc --noEmit</code> (also the first half of <code>npm run build</code>).</p>
+      <p><b>POINT AT</b> the absence of output. Say <em>"strict mode, no <code>any</code>, no <code>@ts-ignore</code> in the repo"</em> — and be ready for him to grep for it.</p>
+    </div>
+    <div class="item">
+      <h3><span class="cid">C-12</span><span class="cid">C-08</span><span class="t">Render-count proof; DevTools-only hook label</span></h3>
+      <p><b>C-12</b> <code>docs/render-counts.md</code> — measured, not estimated, with the capture method written down. Zero row re-renders for a keystroke that does not change the filtered set; one <code>rateBook</code> call per session.</p>
+      <p><b>C-08</b> React DevTools → Components → <code>PoliciesPage</code> → hooks list. <code>useDebugValue</code> labels the entry <code>LocalStorage: "aegis:recent-policies: …"</code> instead of an anonymous "State".</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ DISCREPANCIES ============================ -->
+<section class="panel" id="p-disc">
+  <h2><span>✕ DISCREPANCIES — FOUND WHILE BUILDING THIS RUNSHEET</span><span class="what">Docs claim things the code does not do. Raise D1 and D2 yourself; they are the strongest thing on this page.</span><span class="caret"></span></h2>
+  <div class="body">
+
+    <div class="item bad">
+      <h3><span class="t">D1 · The <code>transform</code> justification for the portal is fictional</span></h3>
+      <p><b>CLAIMED</b> <code>Modal.tsx</code> L14–15: <em>"…a <code>transform</code> (<code>Panel</code> and the sticky premium summary both set one)"</em>. <code>index.html</code> L13–16 repeats it. <code>docs/failure-modes.md</code> L118 (C-09) states it flatly: <em>"(<code>Panel</code>, <code>StickyPremiumSummary</code> both set <code>transform</code>)"</em>.</p>
+      <p><b>FOUND</b> Neither file contains a <code>transform</code>. <code>grep -n "transform" src/shared/components/Panel.module.css src/routes/quoteWizard/StickyPremiumSummary.module.css</code> → no matches. The only real <code>transform</code> in <code>src/</code> is <code>Toast.module.css:5</code> (<code>translateX(-50%)</code>), which is on the portalled element itself, not on an ancestor of one. Everything else is <code>text-transform</code>.</p>
+      <p><b>SO SAY</b> The portal is still right, but for the other reasons: <code>#modal-root</code> is a sibling of <code>#root</code>, so a dialog cannot be clipped by an ancestor's <code>overflow</code> or trapped in a panel's stacking context. <b>Do not say the word "transform"</b> while demoing C-09 — the file he opens will contradict you. If he opens it first: <em>"that comment is stale — no ancestor sets a transform today; overflow and stacking context are the live reasons, and a transform anywhere up that chain would be a third."</em></p>
+    </div>
+
+    <div class="item bad">
+      <h3><span class="t">D2 · "Recently viewed" never persists — the write is discarded before it commits</span></h3>
+      <p><b>CLAIMED</b> Matrix W1-05/W1-06 point at <code>PoliciesPage.handleSelect</code>; W3-D2-02 at the recents list. <code>docs/failure-modes.md</code>: <em>"Click three different policies on /policies; the recents panel updates each time"</em> and <em>"Refresh /policies after viewing a few policies — recents persist."</em></p>
+      <p><b>FOUND</b> Neither happens. <code>PolicyRow</code> renders <code>&lt;Link onClick={() =&gt; onSelect(policy.id)}&gt;</code> — the state update and the router's navigation land in the same React batch, so <code>PoliciesPage</code> is removed from the tree in that same commit. It never renders with the new <code>recentIds</code>, so <code>useLocalStorage</code>'s <code>[key, value]</code> write effect never re-runs. Verified by probe, not reasoned: after clicking a row and waiting 1.5s, <code>localStorage['aegis:recent-policies']</code> is still <code>"[]"</code>; navigating back to <code>/policies</code>, the panel does not render. Pre-seed the key by hand and it renders fine — the <em>read</em> path works, the <em>write</em> path is dead.</p>
+      <p><b>SO SAY</b> Volunteer it: <em>"There is a bug I found preparing this. The recently-viewed list never persists — the click navigates away in the same batch that sets the state, so the component unmounts before the write effect commits. The fix is to write on the detail page's mount, or call the setter from the navigation itself rather than from a Link's onClick. I didn't patch it for the demo because I'd rather show you the finding than a fix you can't check."</em> The two matrix rows that hang off it — immutable array update and the functional updater — are demonstrated <b>for real</b> on stop 4, in <code>PolicyClaimsTab</code>'s <code>setAppended((prev) =&gt; [...prev, claim])</code>.</p>
+    </div>
+
+    <div class="item bad">
+      <h3><span class="t">D3 · <code>failure-modes.md</code> sends you to the wrong wizard step for C-01</span></h3>
+      <p><b>CLAIMED</b> <code>docs/failure-modes.md</code>, C-01: <em>"/quote <b>risk</b> step, add a second insured party"</em>.</p>
+      <p><b>FOUND</b> "Add insured party" is on the <b>Applicant</b> step (<code>QuoteWizardPage.tsx</code> L225, inside <code>ApplicantStep</code> at L134). The Risk step has sum insured, term and prior claims — no insured parties at all. The matrix gets this right; only <code>failure-modes.md</code> is wrong.</p>
+      <p><b>SO SAY</b> Nothing — just do not follow that doc live. Stop 5 has the correct step order.</p>
+    </div>
+
+    <div class="item bad">
+      <h3><span class="t">D4 · <code>failure-modes.md</code> W2-D2-02 names a ref that was deleted</span></h3>
+      <p><b>CLAIMED</b> <em>"<code>useRenewalCountdown</code>'s <code>timerRef</code>/<code>lastActivityRef</code>"</em>.</p>
+      <p><b>FOUND</b> <code>timerRef</code> no longer exists — the interval id is a plain closure <code>const timer</code> (<code>useRenewalCountdown.ts</code> L98). The matrix records the removal and the reason; <code>failure-modes.md</code> was not updated to match. <code>lastActivityRef</code> (L82) is real and earns the row on its own.</p>
+      <p><b>SO SAY</b> If he reads that row aloud: <em>"that line is stale — <code>timerRef</code> was removed in the audit as a ref where a closure const already sufficed. <code>lastActivityRef</code> is the one that matters, and it's the stronger example anyway."</em></p>
+    </div>
+
+    <div class="item">
+      <h3><span class="t">D5 · Matrix "File / Export" column names four symbols that are not exported</span></h3>
+      <p><b>FOUND</b> <code>quoteReducer</code> (L122), <code>initQuoteDraft</code> (L77), <code>QuoteStateContext</code> / <code>QuoteDispatchContext</code> (L216–217) are all module-private in <code>QuoteContext.tsx</code>; <code>estimateIndicativePremium</code> (L65) is module-private in <code>QuoteWizardPage.tsx</code>. The matrix's column header says "File / Export".</p>
+      <p><b>SO SAY</b> Low stakes, but do not be caught out: they are real symbols in real running code, deliberately not part of the module's public surface — <code>useQuoteState</code> / <code>useQuoteDispatch</code> are. If asked, that is a naming imprecision in the matrix column, not a missing export.</p>
+    </div>
+
+    <div class="item">
+      <h3><span class="t">D6 · Verified clean — things that could have been wrong and are not</span></h3>
+      <p><b>ROUTE ORDER</b> The stop order on this page matches <code>App.tsx</code>'s real route table, not any README: index → <code>policies</code> → <code>policies/:id</code> (index=Coverage, <code>claims</code>, <code>documents</code>) → <code>quote</code> → <code>claims/new</code> → <code>underwriting</code> → <code>*</code>.</p>
+      <p><b>TESTS</b> <code>npx vitest run</code> → 6 files, 23 tests, all passing. Counts on stop 10 are per-file <code>it()</code> counts and sum to 23.</p>
+      <p><b>BUILD</b> <code>npm run build</code> → <code>tsc --noEmit</code> clean, 421 modules, 12 route/component JS chunks plus the entry, built in 2.66s. Every chunk name quoted on stop 10 is copied from that run — hashes will change on the next build, the names will not.</p>
+      <p><b>LINE NUMBERS</b> Every <code>(L##)</code> on this page was confirmed with <code>grep -n</code> against the working tree at the time of writing. If a file is edited before the demo, re-check the ones you plan to open.</p>
+    </div>
+
+  </div>
+</section>
+
+<div class="empty">No rows match. Press <kbd style="font-family:var(--mono)">Esc</kbd> to clear.</div>
+
+</main>
+
+<script>
+(function () {
+  var stops = Array.prototype.slice.call(document.querySelectorAll('section.stop'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('section.panel'));
+  var all = stops.concat(panels);
+  var nums = document.getElementById('nums');
+  var q = document.getElementById('q');
+  var count = document.getElementById('count');
+  var empty = document.querySelector('.empty');
+  var cursor = 0;
+
+  /* ---- build the nav ---- */
+  stops.forEach(function (s, i) {
+    var b = document.createElement('button');
+    b.textContent = String(i + 1);
+    b.title = s.querySelector('.route').textContent;
+    b.addEventListener('click', function () { solo(s); });
+    nums.appendChild(b);
+  });
+  [['⚑ Qual', 'p-qual'], ['▸ Term', 'p-term'], ['✕ Disc', 'p-disc']].forEach(function (pair) {
+    var b = document.createElement('button');
+    b.className = 'panel';
+    b.textContent = pair[0];
+    b.addEventListener('click', function () { solo(document.getElementById(pair[1])); });
+    nums.appendChild(b);
+  });
+  var navButtons = Array.prototype.slice.call(nums.querySelectorAll('button'));
+
+  function markNav() {
+    navButtons.forEach(function (b, i) { b.classList.toggle('on', all[i] && all[i].classList.contains('open')); });
+  }
+
+  /* ---- open one, close the rest ---- */
+  function solo(target) {
+    all.forEach(function (s) { s.classList.toggle('open', s === target); });
+    cursor = all.indexOf(target);
+    markNav();
+    target.scrollIntoView({ block: 'start' });
+  }
+
+  all.forEach(function (s) {
+    s.querySelector('h2').addEventListener('click', function () {
+      var wasOpen = s.classList.contains('open');
+      if (wasOpen) { s.classList.remove('open'); markNav(); }
+      else { solo(s); }
+    });
+  });
+  markNav();
+
+  /* ---- click-to-copy on file paths ---- */
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest ? e.target.closest('.path') : null;
+    if (!el) return;
+    // Copy the bare path only — everything before the em dash / before the (L##).
+    var raw = el.textContent.split('—')[0].split('(L')[0].trim();
+    var done = function () {
+      el.classList.add('copied');
+      setTimeout(function () { el.classList.remove('copied'); }, 900);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(raw).then(done, function () { fallback(raw, done); });
+    } else { fallback(raw, done); }
+  });
+
+  function fallback(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (err) { /* offline file:// with no clipboard */ }
+    document.body.removeChild(ta);
+  }
+
+  /* ---- search filter ---- */
+  var rows = Array.prototype.slice.call(document.querySelectorAll('tbody tr[data-s]'));
+  var items = Array.prototype.slice.call(document.querySelectorAll('.item'));
+
+  rows.forEach(function (r) {
+    r._hay = ((r.getAttribute('data-s') || '') + ' ' + r.textContent).toLowerCase();
+  });
+  items.forEach(function (r) { r._hay = r.textContent.toLowerCase(); });
+
+  function filter() {
+    var term = q.value.trim().toLowerCase();
+    if (!term) {
+      document.body.classList.remove('filtering');
+      rows.concat(items).forEach(function (r) { r.classList.remove('hide'); });
+      all.forEach(function (s) { s.classList.remove('hide'); });
+      empty.classList.remove('show');
+      count.textContent = '';
+      markNav();
+      return;
+    }
+    document.body.classList.add('filtering');
+    var hits = 0;
+    rows.concat(items).forEach(function (r) {
+      var ok = r._hay.indexOf(term) !== -1;
+      r.classList.toggle('hide', !ok);
+      if (ok) hits++;
+    });
+    all.forEach(function (s) {
+      var live = s.querySelectorAll('tbody tr[data-s]:not(.hide), .item:not(.hide)').length;
+      s.classList.toggle('hide', live === 0);
+      s.classList.toggle('open', live > 0);
+    });
+    empty.classList.toggle('show', hits === 0);
+    count.textContent = hits + ' row' + (hits === 1 ? '' : 's');
+    markNav();
+  }
+  q.addEventListener('input', filter);
+
+  /* ---- keyboard ---- */
+  document.addEventListener('keydown', function (e) {
+    var typing = document.activeElement === q;
+    if (e.key === '/' && !typing) { e.preventDefault(); q.focus(); q.select(); return; }
+    if (e.key === 'Escape') { q.value = ''; filter(); q.blur(); return; }
+    if (typing) return;
+    if (e.key === 'j' || e.key === 'k') {
+      e.preventDefault();
+      var open = all.filter(function (s) { return !s.classList.contains('hide'); });
+      if (!open.length) return;
+      var here = open.indexOf(all[cursor]);
+      if (here === -1) here = 0;
+      else here = e.key === 'j' ? Math.min(here + 1, open.length - 1) : Math.max(here - 1, 0);
+      solo(open[here]);
+    }
+  });
+})();
+</script>
+</body>
+</html>

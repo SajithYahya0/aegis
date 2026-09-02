@@ -82,7 +82,7 @@ a reviewer.
    party — each "Full name" label targets its own field (`useId`, C-01).
    Watch the sticky premium bar update with no lag as you edit sum insured
    (derived value, not effect-synced state, W2-D1-07) and the "was ₹X" delta
-   (`usePrevious`, W2-D2-03). Refresh mid-wizard — the draft survives
+   (previous-value refs, W2-D2-03). Refresh mid-wizard — the draft survives
    (`useReducer` lazy init + `localStorage`, W2-D3-03).
 9. **Go to `/claims/new`, open "Start a claim".** The wizard's chunk loads
    only now (component-level `React.lazy`, W3-D3-02) — watch the Network

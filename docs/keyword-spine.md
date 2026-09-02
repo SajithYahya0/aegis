@@ -27,7 +27,7 @@ are caveats on rows that are otherwise solid.
 **key** · W1-08 — `PolicyList` `key={policy.id}` — index keys make React reuse the wrong row's DOM and state when the filtered set changes.
 **Conditional rendering** · W1-09 — `PoliciesPage` (`&&`), `FilterStatus` (ternary), `PolicyList` (early return) — three shapes, three reasons: presence, either/or, and bail-out-before-the-table.
 **Event handlers** · W1-10 — `PolicyFilterBar` — typed `ChangeEvent<HTMLInputElement>`; the untyped version compiles and hands you `any` at the one place a typo costs a silent no-op.
-**Controlled inputs** · W1-11 — `QuoteWizardPage` steps — value from `useQuoteState()`, change through `dispatch`; the draft in state is always exactly what is on screen.
+**Controlled inputs** · W1-11 — `QuoteWizardPage` steps — value from `useQuote()`'s state, change through its `dispatch`; the draft in state is always exactly what is on screen.
 **CSS Modules** · W1-12 — `PolicyRow.module.css` + `STATUS_CLASS` — a template-literal `status-${x}` class is invisible to Modules' scoping and every status badge renders colourless.
 **Lifting state up** · W1-13 — `usePolicyFilters` owns it, `PoliciesPage` distributes — filter state read by the list, the summary line and the URL at once.
 **children / slots** · W1-14 — `Panel` — the wrapper knows chrome, not content; without it every panel's border logic is copy-pasted per page.
@@ -50,7 +50,7 @@ are caveats on rows that are otherwise solid.
 
 **useRef DOM** · W2-D2-01 — `Modal` `containerRef` + `focusFirst()` — focus the first field on open, restore it to the trigger on close; without the restore, focus lands on `<body>`.
 **useRef mutable** · W2-D2-02 — `useRenewalCountdown` `lastActivityRef` — written on every mousemove; as state, an idle detector re-renders the page dozens of times a second while the user is idle. The rule: ref when write frequency ≠ render frequency, state when they match, **neither** when a closure variable already scopes it — which is why the old `timerRef` was deleted.
-**usePrevious** · W2-D2-03 — `usePrevious` → `StickyPremiumSummary` — ref written during render, so "was ₹X" is available in the render that shows it; the effect version flashes the wrong value for one frame.
+**Previous-value refs** · W2-D2-03 — `currentPremiumRef` / `previousPremiumRef` in `StickyPremiumSummary` — refs written during render, so "was ₹X" is available in the render that shows it; the effect version flashes the wrong value for one frame.
 
 ### Context
 
@@ -134,7 +134,7 @@ are caveats on rows that are otherwise solid.
 **useId** · C-01 — `TextField` — three insured parties with a hard-coded `id` means three inputs sharing one id and three labels all pointing at the first.
 **useTransition** · C-02 — `PoliciesPage.handleViewChange` — the click is urgent, the render it causes is not; `isPending` is the price of keeping stale content on screen, and `PolicyBookTabs` exists to pay it.
 **useDeferredValue** · C-03 — `usePolicyFilters` `deferredQuery` — defers a *value* whose source must stay urgent; `useTransition` marks an *update you own*. Same idea, opposite ends.
-**useSyncExternalStore** · C-04 — `useOnlineStatus` → `ConnectivityBanner` — the `useState`+`useEffect` mirror can disagree with the store mid-render under concurrency. `getServerSnapshot` returns `true` so the offline banner never renders into server HTML. ⚠ `labs/registry.ts` is the same shape and deliberately still uses the mirror.
+**useSyncExternalStore** · C-04 — called directly in `ConnectivityBanner` — the `useState`+`useEffect` mirror can disagree with the store mid-render under concurrency. `getServerSnapshot` returns `true` so the offline banner never renders into server HTML. ⚠ `labs/registry.ts` is the same shape and deliberately still uses the mirror.
 **useOptimistic** · C-05 — `PolicyClaimsTab` — the overlay is *derived* from `claims`, so there is no removal step on failure to get wrong. Only applies inside a transition — it works here because the form action supplies one.
 **useActionState** · C-06 — `ClaimIntakeWizard` (validated ahead, one error slot) and `ClaimForm` (validated from `FormData`, per-field errors) — the same hook two genuinely different ways. ⚠ the wizard's `<form>` contains no fields.
 **useFormStatus** · C-07 — `SubmitButton`, `WizardNavButton`, `FormCancelButton` ⚠ — must be a *descendant* of the form, never the component that renders it. Real in the wizard; unobservable in `ClaimForm`, where the modal closes and unmounts the form before pending can render.

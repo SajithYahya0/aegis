@@ -2,9 +2,10 @@
  * WHY THIS EXISTS:
  *   The `/quote` route: four steps (applicant, risk, coverage, review) driven
  *   entirely by `QuoteContext`'s reducer. Every field here is controlled —
- *   its value comes from `useQuoteState()` and every change goes through
- *   `useQuoteDispatch()` — so the draft in `state` is always what is on
- *   screen, and it is what gets written to `localStorage` on every change.
+ *   its value comes from the `state` half of `useQuote()` and every change
+ *   goes through the `dispatch` half — so the draft in `state` is always
+ *   what is on screen, and it is what gets written to `localStorage` on
+ *   every change.
  *
  *   It also carries the wizard's live "indicative premium": a rough,
  *   pre-bind estimate shown in the sticky summary bar (`StickyPremiumSummary`)
@@ -19,7 +20,7 @@
  * CONCEPTS: W2-D3-04, W2-D1-07, C-01
  *
  * WITHOUT THIS:
- *   `QuoteContext` would export a reducer and two hooks that nothing in the
+ *   `QuoteContext` would export a reducer and a hook that nothing in the
  *   app actually calls — a context "consumed across wizard steps" (the
  *   matrix's own phrase for W2-D3-04) requires steps that consume it. Without
  *   a route exercising `dispatch`, the mutating-reducer lab defect
@@ -51,7 +52,7 @@ import { useRef, type ReactElement } from 'react';
 import { BASE_RATE_PER_MILLE, CATALOGUE } from '../shared/data';
 import { formatCurrency, POLICY_TYPE_LABEL } from '../shared/format';
 import { TextField } from '../shared/components/TextField';
-import { QUOTE_STEP_ORDER, useQuoteDispatch, useQuoteState } from '../shared/store/QuoteContext';
+import { QUOTE_STEP_ORDER, useQuote } from '../shared/store/QuoteContext';
 import type { PolicyType, Quote, QuoteStep } from '../shared/types';
 import { StickyPremiumSummary } from './quoteWizard/StickyPremiumSummary';
 import styles from './QuoteWizardPage.module.css';
@@ -81,7 +82,7 @@ const POLICY_TYPES: readonly PolicyType[] = ['motor', 'health', 'property', 'lif
 const TERM_OPTIONS = [6, 12, 24, 36] as const;
 
 export default function QuoteWizardPage(): ReactElement {
-  const state = useQuoteState();
+  const [state] = useQuote();
   const headerRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -111,8 +112,7 @@ export default function QuoteWizardPage(): ReactElement {
 }
 
 function WizardNav(): ReactElement {
-  const state = useQuoteState();
-  const dispatch = useQuoteDispatch();
+  const [state, dispatch] = useQuote();
   const index = QUOTE_STEP_ORDER.indexOf(state.step);
 
   return (
@@ -132,8 +132,7 @@ function WizardNav(): ReactElement {
 }
 
 function ApplicantStep(): ReactElement {
-  const state = useQuoteState();
-  const dispatch = useQuoteDispatch();
+  const [state, dispatch] = useQuote();
 
   return (
     <section>
@@ -229,8 +228,7 @@ function ApplicantStep(): ReactElement {
 }
 
 function RiskStep(): ReactElement {
-  const state = useQuoteState();
-  const dispatch = useQuoteDispatch();
+  const [state, dispatch] = useQuote();
 
   return (
     <section>
@@ -276,8 +274,7 @@ function RiskStep(): ReactElement {
 }
 
 function CoverageStep(): ReactElement {
-  const state = useQuoteState();
-  const dispatch = useQuoteDispatch();
+  const [state, dispatch] = useQuote();
   const entries = CATALOGUE[state.type];
 
   return (
@@ -303,8 +300,7 @@ function CoverageStep(): ReactElement {
 }
 
 function ReviewStep(): ReactElement {
-  const state = useQuoteState();
-  const dispatch = useQuoteDispatch();
+  const [state, dispatch] = useQuote();
 
   return (
     <section>

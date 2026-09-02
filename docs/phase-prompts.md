@@ -77,9 +77,9 @@ W2-D3-04, W2-D4-01 through W2-D4-10, W3-D1-04, W3-D2-01.
    visible). Provider value wrapped in useMemo. useAuth() throws a clear error
    when used outside the provider.
 4. src/shared/store/QuoteContext.tsx — useReducer driving a multi-step quote
-   wizard. SPLIT into QuoteStateContext and QuoteDispatchContext, with separate
-   useQuoteState() / useQuoteDispatch() hooks. Use the reducer's third lazy-init
-   argument to rehydrate a draft from localStorage.
+   wizard. SPLIT into QuoteStateContext and QuoteDispatchContext, read through
+   a single useQuote() hook returning [state, dispatch]. Use the reducer's
+   third lazy-init argument to rehydrate a draft from localStorage.
 5. RequireRole route wrapper — reads auth, uses useLocation to remember the
    attempted path, useNavigate(..., { replace: true }) to redirect.
 6. src/shared/labs/ — the deliberate-defect registry with runtime toggles and a
@@ -146,7 +146,8 @@ through W3-D4-06, C-01, C-09, C-10.
 3. Renewal countdown: setInterval in useEffect with teardown; timer id and
    last-activity timestamp held in useRef (mutable, no re-render). Include an
    idle-session detector built on the same refs.
-4. usePrevious ref pattern — show premium delta versus previous quote.
+4. Previous-value ref pattern, inline in StickyPremiumSummary — show premium
+   delta versus previous quote.
 5. Sticky premium summary panel that measures the header with useLayoutEffect.
    Add a lab toggle that switches it to useEffect so the flicker is visible.
 6. Modal component: createPortal to a #modal-root node, forwardRef +

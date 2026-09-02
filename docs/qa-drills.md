@@ -302,7 +302,7 @@ render frequency are different, state when they are the same.
 </details>
 
 <details>
-<summary><b>3.3</b> — <code>usePrevious</code> writes to a ref <em>during render</em>. React documentation calls render functions pure and warns against side effects in them. Defend the violation.</summary>
+<summary><b>3.3</b> — <code>StickyPremiumSummary</code> writes <code>previousPremiumRef</code> <em>during render</em>. React documentation calls render functions pure and warns against side effects in them. Defend the violation.</summary>
 
 It is not a violation of the rule that matters. The rule forbids effects
 *observable outside the component* during render — no DOM writes, no network, no
@@ -368,11 +368,11 @@ table it would be exactly the wrong tool, which is why it is here and not there.
 **⚠ WEAK SPOT.** There isn't one.
 
 Every consumer in `QuoteWizardPage` — `WizardNav`, `ApplicantStep`, `RiskStep`,
-`CoverageStep`, `ReviewStep` — calls both `useQuoteState()` and
-`useQuoteDispatch()`. The split therefore saves exactly zero renders today.
+`CoverageStep`, `ReviewStep` — calls `useQuote()`, which reads both contexts.
+The split therefore saves exactly zero renders today.
 
 And it would still save zero if a dispatch-only step existed, for a second and
-more interesting reason: `QuoteWizardPage` itself calls `useQuoteState()` and
+more interesting reason: `QuoteWizardPage` itself calls `useQuote()` and
 renders every step inline. A context value change re-renders the *provider's
 consumers*, but the parent re-rendering re-renders its children regardless of
 what contexts they read. A dispatch-only child of a state-reading parent
@@ -1364,7 +1364,7 @@ was real.
 The reasons, in order of weight:
 
 1. **A second claim on the row is not a stronger claim.** C-04's named feature is
-   the connectivity banner, and `useOnlineStatus` builds it honestly. Rewriting
+   the connectivity banner, and `ConnectivityBanner` builds it honestly. Rewriting
    `useLabFlag` as well would be a redundant second demonstration of the same
    hook, not a better one.
 2. **It is load-bearing infrastructure.** Six lab defects and the C-05 toggle
