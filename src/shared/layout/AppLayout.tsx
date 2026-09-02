@@ -77,7 +77,7 @@ import { ConnectivityBanner } from '../components/ConnectivityBanner';
 import { AS_OF } from '../data';
 import { formatDate } from '../format';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { LabPanel } from '../labs';
+// import { LabPanel } from '../labs';
 import { preloadPath } from '../routes/lazyRoutes';
 import { useAuth } from '../store/AuthContext';
 import type { Role } from '../types';
@@ -216,7 +216,7 @@ export function AppLayout(): ReactElement {
       <main className={styles.main}>
         <ConnectivityBanner />
         <Outlet />
-        {import.meta.env.DEV ? <LabPanel /> : null}
+        {/* {import.meta.env.DEV ? <LabPanel /> : null} */}
       </main>
     </div>
   );
