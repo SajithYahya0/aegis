@@ -9,7 +9,7 @@ Format: `**keyword** · ID — where it lives — what breaks without it`.
 
 Lines marked **⚠** are ones where the honest recall includes a caveat; the
 caveat is the part worth remembering, and `docs/qa-drills.md` argues each one.
-Five of them correspond to the `[~]` rows in `docs/coverage-matrix.md` — code
+Six of them correspond to the `[~]` rows in `docs/coverage-matrix.md` — code
 that is correct and reachable but demonstrates nothing observable here. The rest
 are caveats on rows that are otherwise solid.
 
@@ -115,7 +115,7 @@ are caveats on rows that are otherwise solid.
 **Error boundary class** · W3-D4-01 — `ErrorBoundary` — `getDerivedStateFromError` (render phase, pure) + `componentDidCatch` (commit phase, where `componentStack` lives). No hook equivalent exists.
 **Retry = key bump + eviction + reset** · W3-D4-02 — `<Fragment key={attempt}>` + `onRetry` — clearing error state alone re-reads the same cached rejection and re-throws before paint. The key bump discards the *fiber* and **neither cache**: both are module-scoped, so `onRetry` is the half that recovers. Evict *first*, then remount. `clearPolicyResource` for the promise cache; `splitChunk().reset()` for `React.lazy`, whose rejected payload remounting can never reach (measured: 1 import attempt before Retry, 1 after). All three tested.
 **Scoped boundary** · W3-D4-03 — `RiskExposurePanel` — the only lab defect whose symptom is that the rest of the page *keeps working*; a boundary at the root catches everything and protects nothing.
-**useLayoutEffect vs useEffect** · W3-D4-04 — `StickyPremiumSummary` + `layout-effect-flicker` — same value, opposite side of the paint: layout effects re-commit before the first paint, passive effects never do. Trust the `before paint`/`after paint` tag, not the millisecond figure.
+**useLayoutEffect vs useEffect** · W3-D4-04 — `StickyPremiumSummary` + `layout-effect-flicker` ⚠ — same value, opposite side of the paint: layout effects re-commit before the first paint, passive effects never do. Trust the `before paint`/`after paint` tag, not the millisecond figure — and *only* the tag: the bar is `position: sticky`, whose `top` is a scroll-triggered clamp this short wizard never reaches, so the toggle produces no visible jump. Volunteer that before being asked. `sticky` is what product wanted; the row was downgraded rather than the CSS reverted to flatter the demo.
 **forwardRef** · W3-D4-05 — `Modal` — `TextField` deliberately has none: nothing grabs its node, and `Modal`'s `querySelectorAll` focus search covers it.
 **useImperativeHandle** · W3-D4-06 — `{ open, close, focusFirst }` — a verb instead of a variable; the boolean-prop alternative duplicates open/close state at every trigger site and re-renders the parent's whole subtree.
 

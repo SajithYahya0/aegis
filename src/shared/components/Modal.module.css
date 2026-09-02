@@ -19,3 +19,15 @@
   max-height: calc(100vh - var(--s-7));
   overflow-y: auto;
 }
+
+/*
+ * The claim intake wizard is the one consumer whose content genuinely needs
+ * more than 420px — three steps of side-by-side fields. It opts in with
+ * `size="wide"` rather than the base `.dialog` being widened, because every
+ * other consumer (the "log claim" form in `PolicyClaimsTab`) is sized for
+ * 420 and would look stranded at 640.
+ */
+.dialogWide {
+  composes: dialog;
+  max-width: 640px;
+}

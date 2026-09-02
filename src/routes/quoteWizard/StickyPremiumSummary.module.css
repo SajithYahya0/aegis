@@ -1,14 +1,29 @@
 /*
- * `position: fixed`, not `sticky` — see the component's header for why
- * `sticky`'s `top` never rendered any differently regardless of the
- * measured-vs-fallback value on this short, non-scrolling page.
+ * `position: sticky`, not `fixed`. Product asked for a bar that travels with
+ * the wizard content and pins only once it reaches `top` — that is sticky's
+ * definition and fixed cannot express it: a fixed bar is welded to the
+ * viewport and slides over the content behind it.
+ *
+ * No `left`, no `width`, no `max-width`. A sticky element stays in normal
+ * flow, so it is already sized and placed by its container — the wizard
+ * column. Re-stating a viewport-relative width here (as the fixed version
+ * had to) would make the bar disagree with the column it sits in the moment
+ * the sidebar or page padding changed.
+ *
+ * `z-index` stays: sticky creates a stacking context but does not by itself
+ * guarantee the bar paints above later siblings it overlaps while pinned.
+ *
+ * The consequence for the W3-D4-04 demo — that sticky's `top` is a
+ * scroll-triggered clamp this short wizard never reaches, so the measured
+ * offset is no longer visible on screen — is spelled out in the component's
+ * header. It is recorded there and in the matrix rather than worked around.
  */
 .bar {
-  position: fixed;
-  left: calc(var(--nav-width) + var(--s-5));
-  width: 720px;
-  max-width: calc(100vw - var(--nav-width) - 2 * var(--s-5));
+  position: sticky;
   z-index: 50;
+  /* Was the deleted `.spacer`'s job. In flow the bar occupies its own
+   * height, so only the gap to the step below it still needs stating. */
+  margin-bottom: var(--s-4);
   display: flex;
   align-items: baseline;
   gap: var(--s-3);
@@ -16,18 +31,6 @@
   border: 1px solid var(--c-accent);
   border-radius: var(--radius);
   padding: var(--s-2) var(--s-4);
-}
-
-/*
- * `.bar` is removed from normal flow by `position: fixed`, so this reserves
- * the vertical space it would otherwise occupy — a fixed height, not a
- * measured one, because the bar's own content never varies enough to need
- * runtime measurement. Unrelated to the offset bug this file demonstrates:
- * this spacer's height never changes, only where `.bar` itself is drawn does.
- */
-.spacer {
-  height: 45px;
-  margin-bottom: var(--s-4);
 }
 
 .label {

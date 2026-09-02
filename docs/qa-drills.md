@@ -860,12 +860,20 @@ browser paints. If it sets state, React re-renders and re-commits inside the sam
 phase, so exactly one paint happens and it already shows the measured position.
 
 `useEffect` runs after paint. The browser paints once with `FALLBACK_TOP_PX` — 0,
-chosen to be nowhere near the real offset, so the panel renders flush against the
-top of the viewport overlapping `AppLayout`'s header — then the passive effect
-runs and a second paint snaps it down.
+chosen to be nowhere near the real offset — then the passive effect runs and a
+second paint carries the measured one.
 
-The user sees a jump. The value is identical either way; only the timing differs,
-and timing is the entire user-visible behaviour.
+The value is identical either way; only which side of the paint it lands on
+differs.
+
+**Concede the follow-up before it is asked:** in *this* component you cannot
+currently see that difference. `.bar` is `position: sticky`, so `top` is a
+scroll-triggered clamp, and a four-step wizard never scrolls far enough to reach
+it — both branches draw the bar at the same in-flow position. The console's
+`before paint` / `after paint` tags are the observable, and the matrix carries
+the row as `[~]` for exactly this reason. The mechanism is real; the demo of it
+lost its picture when the bar was moved into flow, and the honest answer is to
+say so rather than to move it back.
 </details>
 
 <details>
@@ -888,27 +896,37 @@ guarantee, log the guarantee, not a proxy for it that happens to correlate.
 </details>
 
 <details>
-<summary><b>8.3</b> — The component used <code>position: sticky</code> first and it was changed to <code>fixed</code> for the demo. Isn't changing the CSS to make the bug visible exactly the contrivance CLAUDE.md forbids?</summary>
+<summary><b>8.3</b> — This bar was <code>position: fixed</code> so the toggle's flicker would be visible, and it has been changed back to <code>sticky</code>, which makes the toggle inert. Why give up a working demo?</summary>
 
-It would be, if the CSS had been chosen to *manufacture* a difference. It was
-changed because `sticky` was hiding a difference that was really there.
+Because the demo was never the reason the bar exists, and this is the order those
+two things have to be ranked in.
 
-A `position: sticky` element's `top` is a scroll-triggered clamp — it only affects
-rendering once the page has scrolled far enough that the element's normal-flow
-position would cross above that offset. This wizard is four short steps and never
-scrolls that far, so the element sat at its ordinary in-flow position regardless
-of what `top` held. A Playwright probe confirmed the rendered rect was
-bit-for-bit identical with the toggle on and off, *even though the two `top`
-values genuinely differed*.
+The history is worth stating plainly, because it cuts both ways. The component
+started on `sticky`. It was changed to `fixed` on the finding that `sticky` was
+hiding a real difference: a sticky element's `top` is a scroll-triggered clamp —
+it changes nothing until the page has scrolled far enough that the element's
+normal-flow position would cross above that offset — and this four-step wizard
+never scrolls that far, so the bar sat at its in-flow position regardless of what
+`top` held. A Playwright probe recorded rendered rects that were bit-for-bit
+identical with the toggle on and off, *even though the two `top` values genuinely
+differed*. That finding is still true.
 
-So under `sticky` the component was measuring a value that nothing rendered. That
-is a bug in the component independent of any demo: it did work, stored the
-result, and the result had no effect. `fixed` applies `top` on every paint
-unconditionally, which makes the measurement load-bearing.
+Then product asked for a bar that travels with the content and pins on arrival.
+That is `sticky`'s definition and `fixed` cannot express it — a fixed bar is
+welded to the viewport from the first frame. So the choice was: satisfy the
+product requirement, or keep a lab toggle looking impressive. Keeping `fixed`
+would have meant a real user-facing behaviour was chosen to protect a
+demonstration, which is the contrivance `CLAUDE.md` actually forbids — the
+inverse of the one this question suggests.
 
-The contrivance test is: does the component still make sense with the lab toggle
-deleted? It does — a premium bar docked under a variable-height header needs a
-measured offset either way.
+What was given up is precisely the *picture*, not the mechanism. The measurement
+still runs, both branches still differ, and the `before paint` / `after paint`
+tags still print. The row went to `[~]` in `docs/coverage-matrix.md` with the
+reason written out, which is what that legend is for.
+
+The contrivance test still passes on the component itself: does it make sense
+with the lab toggle deleted? It does — a premium bar docking under a
+variable-height header needs a measured offset either way.
 </details>
 
 <details>
@@ -928,11 +946,16 @@ a different stacking context, a sticky element inside a `transform`ed ancestor
 one is the only one left.
 
 So the honest positioning is: this component demonstrates the
-`useLayoutEffect` mechanism on a layout where CSS would also have worked, chosen
-because it is the simplest layout where the before-paint/after-paint distinction
-is *visible*. A layout complex enough to force the measurement would have made
-the demo about the layout instead. That trade is worth naming rather than
-pretending the CSS route does not exist — the reviewer knows it does.
+`useLayoutEffect` mechanism on a layout where CSS would also have worked. It was
+picked as the simplest place to show the before-paint/after-paint distinction; a
+layout complex enough to *force* the measurement would have made the demo about
+the layout instead.
+
+That trade got worse, not better, when the bar went back to `position: sticky` —
+the distinction is now only in the console, so the CSS-would-have-done-it
+objection lands harder here than it used to. Naming that is still the right move.
+The reviewer knows the CSS route exists, and `docs/coverage-matrix.md` records
+the row as `[~]` rather than claiming otherwise.
 </details>
 
 <details>

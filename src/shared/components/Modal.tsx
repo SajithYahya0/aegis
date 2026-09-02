@@ -29,6 +29,16 @@
  *   dialog from "Log claim" loses their place in the page entirely instead
  *   of landing back on the button they pressed.
  *
+ *   No `size` prop: `.dialog` caps at `max-width: 420px`, and the claim
+ *   intake wizard asked for `min-width: min(520px, 80vw)`. 520 does not fit
+ *   inside 420, so the wizard overflowed its own dialog — a horizontal
+ *   scrollbar inside the modal and the right edge of the card cut off. Both
+ *   single-number fixes are wrong: raising 420 globally strands the narrow
+ *   "log claim" form in `PolicyClaimsTab` at nearly twice the width its four
+ *   fields need, and shrinking the wizard to fit 420 crams its side-by-side
+ *   fields back into one column. An opt-in `size` gives one Modal two honest
+ *   widths instead of one width that suits neither consumer.
+ *
  *   No `useImperativeHandle`: the only alternative surface for "open this
  *   from a click elsewhere" is a boolean prop threaded down from a parent
  *   `useState`, which means every trigger site duplicates the same
@@ -57,11 +67,17 @@ export interface ModalHandle {
 
 export interface ModalProps {
   labelledBy: string;
+  /**
+   * Widens `max-width` from 420px to 640px. Opt-in per call site rather than
+   * a global bump, because 420 is right for every consumer except the claim
+   * intake wizard — see this file's header.
+   */
+  size?: 'default' | 'wide';
   children: ReactNode;
 }
 
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
-  { labelledBy, children },
+  { labelledBy, size = 'default', children },
   ref,
 ) {
   const [isOpen, setIsOpen] = useState(false);
@@ -138,7 +154,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
     <div className={styles.overlay} onMouseDown={() => setIsOpen(false)}>
       <div
         ref={containerRef}
-        className={styles.dialog}
+        className={size === 'wide' ? styles.dialogWide : styles.dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}

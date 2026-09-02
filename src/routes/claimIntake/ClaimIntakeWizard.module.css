@@ -1,7 +1,16 @@
+/*
+ * `min-width: min(100%, 560px)` — never a bare pixel floor. The previous
+ * `min(520px, 80vw)` was a demand made of the container rather than a
+ * request: inside `Modal`'s 420px dialog it could not be met, and the wizard
+ * simply overflowed. Capping the floor at 100% means the wizard asks for
+ * 560px and settles for whatever its container actually has, so it can never
+ * again be wider than the thing drawing it. The dialog opts into 640px via
+ * `size="wide"`; this rule is what keeps the 375px case honest.
+ */
 .wizard {
   display: grid;
   gap: var(--s-4);
-  min-width: min(520px, 80vw);
+  min-width: min(100%, 560px);
 }
 
 .steps {
@@ -38,9 +47,67 @@
   gap: var(--s-3);
 }
 
+/*
+ * Form controls carry an intrinsic minimum width — a text input's `size`, a
+ * `<select>`'s widest option — and a grid item's default `min-width: auto`
+ * refuses to shrink below it. That is how a control pushes its own container
+ * wider than the dialog and produces the horizontal scrollbar this file's
+ * `.wizard` rule exists to prevent; capping `.wizard` alone would not have
+ * been enough at 375px. `min-width: 0` lets the grid track win the argument,
+ * `width: 100%` then keeps the control filling whatever track it got.
+ *
+ * Declared before `.checkboxField input` on purpose: same specificity, so
+ * source order is what lets the checkbox keep `width: auto`.
+ */
+.body > *,
+.row > * {
+  min-width: 0;
+}
+
+.body input,
+.body select {
+  min-width: 0;
+  width: 100%;
+}
+
 .field {
   display: grid;
   gap: var(--s-1);
+}
+
+/*
+ * Pairs two short fields onto one line so the Incident step stays a single
+ * screen after the claimant-detail fields were added. Collapses to one
+ * column below 480px, where two columns would leave each input too narrow to
+ * read a phone number in.
+ */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+}
+
+@media (max-width: 480px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.checkboxField {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-sm);
+}
+
+.checkboxField input {
+  width: auto;
+}
+
+/* The `*` marking a mandatory field. `aria-hidden` in the markup — the
+ * accessible signal is the input's own `required` / `aria-required`. */
+.required {
+  color: var(--c-danger);
 }
 
 .field > label {

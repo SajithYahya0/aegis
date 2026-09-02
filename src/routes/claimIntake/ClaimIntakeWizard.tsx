@@ -60,6 +60,24 @@
  *   The action still hands the finished draft to the caller-supplied
  *   `onSubmit` and lets it do the write — `submitClaim` itself lives in
  *   `api.ts`, not here.
+ *
+ *   No `required` on the mandatory fields: `goNext()` has always refused to
+ *   leave the Incident step without an amount, a date and a description, but
+ *   the form gave no advance warning that any of them mattered. The failure
+ *   is not that invalid data got through — it did not — it is the shape of
+ *   the correction: one error at a time, discovered only on Continue, so an
+ *   agent who left three fields blank makes three round trips to find that
+ *   out. The `*` markers and `aria-required` state the contract up front;
+ *   `goNext()` still enforces it, because a marker is a hint and the
+ *   validator is the rule.
+ *
+ *   No location or claimant contact: a first notice of loss that records an
+ *   amount and a sentence but no incident location and no way to reach the
+ *   claimant is not a claim anyone downstream can act on — the assessor has
+ *   nowhere to visit and no one to call. The FIR number and third-party flag
+ *   are optional because they genuinely are: a household water-damage claim
+ *   has neither, and making them mandatory would force agents to type
+ *   "N/A" into a field the recovery team later has to read as data.
  */
 
 import { useActionState, useMemo, useState, type ReactElement, type ReactNode } from 'react';
@@ -105,7 +123,13 @@ export interface ClaimIntakeDraft {
   type: ClaimType;
   amount: number;
   incidentDate: string;
+  incidentLocation: string;
   description: string;
+  claimantPhone: string;
+  /** Optional — see this file's header for why these four are not enforced. */
+  claimantEmail: string;
+  policeReportNumber: string;
+  thirdPartyInvolved: boolean;
 }
 
 export interface ClaimIntakeWizardProps {
@@ -123,7 +147,12 @@ export default function ClaimIntakeWizard({
   const [type, setType] = useState<ClaimType>('accident');
   const [amount, setAmount] = useState('');
   const [incidentDate, setIncidentDate] = useState('');
+  const [incidentLocation, setIncidentLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [claimantPhone, setClaimantPhone] = useState('');
+  const [claimantEmail, setClaimantEmail] = useState('');
+  const [policeReportNumber, setPoliceReportNumber] = useState('');
+  const [thirdPartyInvolved, setThirdPartyInvolved] = useState(false);
   // Step-transition validation only — see the header for why the *submit*
   // error lives in `submitState` instead, returned from the action below.
   const [stepError, setStepError] = useState<string | null>(null);
@@ -174,8 +203,19 @@ export default function ClaimIntakeWizard({
         setStepError('Enter the date of the incident.');
         return;
       }
+      // Checked in the order the fields are laid out, so the message always
+      // names the topmost blank one rather than whichever branch happens to
+      // come first in this function.
+      if (!incidentLocation.trim()) {
+        setStepError('Enter where the incident took place.');
+        return;
+      }
       if (!description.trim()) {
         setStepError('Describe the loss before continuing.');
+        return;
+      }
+      if (!claimantPhone.trim()) {
+        setStepError('Enter a phone number for the claimant.');
         return;
       }
       setStepError(null);
@@ -196,7 +236,7 @@ export default function ClaimIntakeWizard({
    * action returns is the async one — the write itself rejecting. `formData`
    * goes unused deliberately: the values it would carry already live in this
    * closure as controlled state, and re-deriving them from FormData would be
-   * a second, redundant source of truth for the same three fields.
+   * a second, redundant source of truth for every field on the draft.
    */
   const [submitState, submitAction] = useActionState<{ error: string | null }, FormData>(
     async (_previousState) => {
@@ -207,7 +247,12 @@ export default function ClaimIntakeWizard({
           type,
           amount: parsedAmount,
           incidentDate,
+          incidentLocation: incidentLocation.trim(),
           description: description.trim(),
+          claimantPhone: claimantPhone.trim(),
+          claimantEmail: claimantEmail.trim(),
+          policeReportNumber: policeReportNumber.trim(),
+          thirdPartyInvolved,
         });
         return { error: null };
       } catch (thrown) {
@@ -251,11 +296,18 @@ export default function ClaimIntakeWizard({
               onChange={(event) => setPolicyQuery(event.target.value)}
             />
             <div className={styles.field}>
-              <label htmlFor="claim-policy">Policy</label>
+              <label htmlFor="claim-policy">
+                Policy
+                <span className={styles.required} aria-hidden="true">
+                  {' *'}
+                </span>
+              </label>
               <select
                 id="claim-policy"
                 value={policyId}
                 onChange={(event) => setPolicyId(event.target.value)}
+                required
+                aria-required="true"
                 size={6}
               >
                 <option value="">— select —</option>
@@ -286,24 +338,75 @@ export default function ClaimIntakeWizard({
                 ))}
               </select>
             </div>
+            {/*
+              Paired onto one line so the Incident step still fits a single
+              screen after the claimant fields below were added — `.row`
+              collapses back to one column under 480px.
+            */}
+            <div className={styles.row}>
+              <TextField
+                label="Amount claimed (₹)"
+                type="number"
+                min={0}
+                required
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+              <TextField
+                label="Date of incident"
+                type="date"
+                required
+                value={incidentDate}
+                onChange={(event) => setIncidentDate(event.target.value)}
+              />
+            </div>
             <TextField
-              label="Amount claimed (₹)"
-              type="number"
-              min={0}
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-            />
-            <TextField
-              label="Date of incident"
-              type="date"
-              value={incidentDate}
-              onChange={(event) => setIncidentDate(event.target.value)}
+              label="Incident location"
+              placeholder="Street, city — where the loss occurred"
+              required
+              value={incidentLocation}
+              onChange={(event) => setIncidentLocation(event.target.value)}
             />
             <TextField
               label="What happened"
+              required
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
+            <div className={styles.row}>
+              <TextField
+                label="Claimant phone"
+                type="tel"
+                required
+                value={claimantPhone}
+                onChange={(event) => setClaimantPhone(event.target.value)}
+              />
+              <TextField
+                label="Claimant email"
+                type="email"
+                value={claimantEmail}
+                onChange={(event) => setClaimantEmail(event.target.value)}
+              />
+            </div>
+            <TextField
+              label="Police report / FIR number"
+              placeholder="If one was filed"
+              value={policeReportNumber}
+              onChange={(event) => setPoliceReportNumber(event.target.value)}
+            />
+            {/*
+              A checkbox, so `checked`/`onChange` rather than `value` — and
+              therefore not a `TextField`, which is built around a text
+              input's value contract.
+            */}
+            <label className={styles.checkboxField}>
+              <input
+                type="checkbox"
+                checked={thirdPartyInvolved}
+                onChange={(event) => setThirdPartyInvolved(event.target.checked)}
+              />
+              Third party involved
+            </label>
           </>
         ) : null}
 
@@ -318,7 +421,14 @@ export default function ClaimIntakeWizard({
             <ReviewRow label="Claim type" value={CLAIM_TYPE_LABEL[type]} />
             <ReviewRow label="Amount claimed" value={formatCurrency(parsedAmount)} />
             <ReviewRow label="Incident date" value={incidentDate} />
+            <ReviewRow label="Incident location" value={incidentLocation} />
             <ReviewRow label="Description" value={description} />
+            <ReviewRow label="Claimant phone" value={claimantPhone} />
+            {/* Em dash rather than an empty cell: "not supplied" and "the row
+                failed to render" should not look the same on a review screen. */}
+            <ReviewRow label="Claimant email" value={claimantEmail || '—'} />
+            <ReviewRow label="Police report / FIR" value={policeReportNumber || '—'} />
+            <ReviewRow label="Third party involved" value={thirdPartyInvolved ? 'Yes' : 'No'} />
           </div>
         ) : null}
 

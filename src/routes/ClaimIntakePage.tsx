@@ -78,6 +78,16 @@ export default function ClaimIntakePage(): ReactElement {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   async function handleSubmit(draft: ClaimIntakeDraft): Promise<void> {
+    /*
+     * The draft carries more than `submitClaim` accepts — incident location,
+     * claimant phone and email, FIR number, third-party flag. They are
+     * collected, validated and shown on the Review step, and then dropped
+     * here, because `ClaimDraft`/`Claim` in `shared/types.ts` are also what
+     * `PolicyClaimsTab`'s table, its optimistic row and the seed data are
+     * built on; widening them is a change to the claims model, not to this
+     * form. Named rather than left to be discovered: an agent who fills in a
+     * phone number should not have to guess whether it was stored.
+     */
     const claim = await submitClaim({
       policyId: draft.policyId,
       type: draft.type,
@@ -104,7 +114,7 @@ export default function ClaimIntakePage(): ReactElement {
         </p>
       </Panel>
 
-      <Modal ref={modalRef} labelledBy="claim-intake-title">
+      <Modal ref={modalRef} labelledBy="claim-intake-title" size="wide">
         <ErrorBoundary label="Claim intake wizard" onRetry={ClaimIntakeWizardChunk.reset}>
           <Suspense fallback={<Skeleton variant="panel" rows={5} label="Loading claim wizard" />}>
             <ClaimIntakeWizardChunk.Component

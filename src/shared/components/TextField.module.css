@@ -13,3 +13,11 @@
   color: var(--c-danger);
   font-size: var(--fs-xs);
 }
+
+/*
+ * The `*` on a mandatory field. `aria-hidden` in the markup — the accessible
+ * signal is the input's own `required` / `aria-required`, not this glyph.
+ */
+.required {
+  color: var(--c-danger);
+}

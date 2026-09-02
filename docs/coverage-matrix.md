@@ -114,7 +114,7 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W3-D4-01 | Error Boundary class component | R | `ErrorBoundary.tsx` — `getDerivedStateFromError` + `componentDidCatch` | `src/shared/components/ErrorBoundary.tsx` — `ErrorBoundary`; tested in `src/shared/components/ErrorBoundary.test.tsx` | [x] |
 | W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | `src/shared/components/ErrorBoundary.tsx` — `handleRetry` + `<Fragment key={attempt}>`, paired with `onRetry` at every call site. **Was measurably false, now repaired** — this row was flagged for downgrade and instead fixed, because the fix was available. The old claim was that the `key` bump clears `React.lazy`'s memoised rejection; it does not (a probe recorded one import attempt before Retry and one after), so `App.tsx`'s route-level Retry could never recover a failed chunk and `ClaimIntakePage`'s had the same hole. Fixed by `splitChunk().reset()` in `src/shared/routes/lazyRoutes.tsx`, wired through `App.tsx`'s `BoundedRoute` and `ClaimIntakePage`. Now three mechanisms, all tested: the remount and the eviction ordering in `ErrorBoundary.test.tsx`, the lazy reset in `src/shared/routes/lazyRoutes.test.tsx` — including a negative test that fails if remounting ever starts recovering on its own. `ErrorBoundary.tsx`'s header carries the correction | [x] |
 | W3-D4-03 | Scoped boundary — widget fails, page survives | R | Claims widget throws; policy detail still renders | `src/routes/policyDetail/RiskExposureWidget.tsx` — `RiskExposurePanel`, wired to `api.ts`'s always-rejecting `fetchRiskFeed` behind the `risk-feed-outage` lab toggle. **Deliberate deviation:** the failing widget is the risk feed, not the Claims tab. Making Claims the one that throws would mean converting it from the `useFetch` + `AbortController` path to the `use()` + Suspense path, and CLAUDE.md requires both paths to exist *and* to be contrastable — they now sit on the same page, one tab apart. `fetchRiskFeed` was built in Phase 0 for exactly this row (see its header) | [x] |
-| W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | `src/routes/quoteWizard/StickyPremiumSummary.tsx` — `StickyPremiumSummary`, toggled by the `layout-effect-flicker` lab defect (`src/shared/labs/registry.ts`) | [x] |
+| W3-D4-04 | `useLayoutEffect` vs `useEffect` (flicker shown) | R | Sticky premium summary measuring header height | `src/routes/quoteWizard/StickyPremiumSummary.tsx` — `StickyPremiumSummary`, toggled by the `layout-effect-flicker` lab defect (`src/shared/labs/registry.ts`). **Qualified — the flicker is no longer shown:** the mechanism is correct and both branches still run, but the bar was moved from `position: fixed` to `position: sticky` on product feedback (it should travel with the wizard and pin on arrival, not hang over it). `top` on a sticky element is a scroll-triggered clamp, and this four-step wizard never scrolls far enough to reach it, so the measured-vs-fallback difference lands in `dockTop` but is never drawn — both branches paint the bar at the same in-flow position. What still demonstrates the row is the console: the `before paint` / `after paint` tag on each log line, which is the guarantee itself rather than a proxy for it. Deliberately **not** fixed by reverting the CSS to suit the demo; see [Known weak claims](#known-weak-claims) | [~] |
 | W3-D4-05 | `forwardRef` | R | `Modal`, `TextField` | `src/shared/components/Modal.tsx` — `Modal` (`TextField` deliberately does not need `forwardRef` — see its own header; nothing in the app grabs its DOM node directly, `Modal`'s generic `querySelectorAll` focus search covers it) | [x] |
 | W3-D4-06 | `useImperativeHandle` — exposed API | R | `modalRef.current.open()/close()/focusFirst()` | `src/shared/components/Modal.tsx` — `Modal`, consumed via `modalRef` in `src/routes/policyDetail/PolicyClaimsTab.tsx` | [x] |
 | W3-D5-01 | `use()` — unwrapping a promise | R | Policy detail data | `src/routes/policyDetail/PolicySummaryCard.tsx` — `PolicySummaryCard` (`use(getPolicyResource(policyId))`, no loading/error state of its own) | [x] |
@@ -168,7 +168,7 @@ directly (see the Week 2 section above).
 
 ## Known weak claims
 
-**Total rows: 83. Solid `[x]`: 78. Qualified `[~]`: 5. Not built: 0.**
+**Total rows: 83. Solid `[x]`: 77. Qualified `[~]`: 6. Not built: 0.**
 
 The previous line here read "Complete: 83. Remaining: 0", and that number was
 defensible only against criteria that turned out to be too weak. A post-Phase-5
@@ -181,12 +181,22 @@ Four are correct code whose effect is unobservable in this app; the fifth is a
 concept the app has no honest home for. `CLAUDE.md` ranks a contrived usage as
 worse than an honest gap, so **inert is recorded as inert**.
 
+A **sixth** row joined them later, and it arrived differently from the other
+five. W3-D4-04 was genuinely solid when it was written; it was downgraded when
+a product change to `StickyPremiumSummary`'s positioning took its observable
+away. That is worth separating out, because it is the case this table will keep
+seeing: not a row that was never really demonstrated, but a row whose demo was
+collateral damage from a change the app wanted for its own reasons. The rule
+applied is the same one — the layout stays as the product asked, the row goes
+to `[~]`, and the demo is not restored by bending the CSS back.
+
 | ID | Concept | Why it is qualified | What would make it `[x]` |
 |---|---|---|---|
 | W3-D1-02 | `memo` custom comparator | `PremiumBadge`'s comparator can never run — its memoised parent bails out first, so the child is never rendered. Measured in `docs/render-counts.md`. And it would lose if it ran: two `formatCurrency` calls to skip a render costing one. | A second `rateBook` pass that re-prices the same policy. The app runs exactly one per session, so this needs a feature that does not exist. Alternatively: delete the comparator and let shallow compare on `amount` do the job — the more honest edit. |
 | W2-D2-06 | Split context | No dispatch-only consumer exists; all five wizard steps read both, via `useQuote()`. Even one would re-render anyway, because `QuoteWizardPage` reads state and renders the steps as children. | `React.memo` on the step components **and** a step that genuinely needs dispatch without state. Neither is wanted by the wizard as designed. |
 | W3-D1-04 | `useMemo` on a context value | `role` is `AuthProvider`'s only state and nothing above it re-renders, so the provider re-renders exactly when the value must change. The bail-out branch is unreachable. | A second piece of state in `AuthProvider`, or an ancestor that re-renders. Both would be invented for the matrix. |
 | C-07 | `useFormStatus` | Real in `ClaimIntakeWizard`. Unobservable in `PolicyClaimsTab`'s `ClaimForm`: `handleLogClaim` closes the modal before its `await`, unmounting the form before `pending` can render. | Keeping the modal open until the action settles — which would cover the optimistic row (C-05) that is the actual feedback. The two features are in real tension; the hook loses. |
+| W3-D4-04 | `useLayoutEffect` vs `useEffect` | The measurement, both effect branches and the `before paint` / `after paint` logs are all real and all still run. What is gone is the *visible* flicker: `.bar` moved from `position: fixed` to `position: sticky` so it scrolls with the wizard, and a sticky element's `top` is a scroll-triggered clamp this four-step wizard never scrolls far enough to trigger. A Playwright probe against the earlier sticky version recorded identical rendered rects with the toggle on and off, even though the two `top` values differed. | Enough content below the bar that the page actually scrolls past the dock offset — then `top` engages and the two branches diverge on screen again. A wizard step long enough to force that is a feature the quote flow does not want. Reverting to `fixed` would also do it, and is refused: it undoes the behaviour product asked for in order to make a demo look better. |
 | W2-D1-01 | Mount-only fetch (`[]` deps) | No `[]`-deps *fetch* exists. `useFetch`'s `[policyId]` effect runs once on mount, but that is an argument for not building the row, not a demonstration of it. | A feature that genuinely fetches once and never refetches. Adding one to `PolicyClaimsTab` would ship the stale-data bug `useFetch` exists to prevent. |
 
 ### Repaired rather than downgraded
@@ -217,7 +227,7 @@ held its interval id in a ref where the effect's own closure already sufficed.
 
 ## Audit
 
-Total rows: **83**. Solid: **78**. Qualified: **5**. Remaining: **0**.
+Total rows: **83**. Solid: **77**. Qualified: **6**. Remaining: **0**.
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -326,7 +336,10 @@ Total rows: **83**. Solid: **78**. Qualified: **5**. Remaining: **0**.
 ## Still unchecked after Phase 5
 
 **None unbuilt** — but see [Known weak claims](#known-weak-claims), added after
-this section was written. Five of the 83 are now `[~]` rather than `[x]`.
+this section was written. Six of the 83 are now `[~]` rather than `[x]` — five
+found by that audit, and W3-D4-04 downgraded later when the premium bar was
+changed from `position: fixed` to `position: sticky` and the visible flicker
+went with it.
 
 The audit below was run against the criteria in force at the time: does the
 named file exist, does it export what the row claims, is it reachable from a

@@ -584,9 +584,9 @@
           <td class="con"><span class="cid">W2-D2-03</span></td>
           <td class="file"><span class="path">src/shared/hooks/usePrevious.ts — <span class="ex">usePrevious</span> <span class="ln">(L26)</span></span><span class="path">src/routes/quoteWizard/StickyPremiumSummary.tsx — <span class="ex">previousPremium</span> <span class="ln">(L73)</span></span></td>
         </tr>
-        <tr data-s="W3-D4-04 useLayoutEffect vs useEffect flicker sticky premium bar measurement paint jump">
-          <td class="say">I implemented the dock measurement in <code>useLayoutEffect</code> so it lands before paint, otherwise — and the toggle shows this live — the browser paints once at the fallback offset and corrects a frame later, so the premium bar visibly starts at the top of the page and jumps down.</td>
-          <td class="con"><span class="cid">W3-D4-04</span></td>
+        <tr data-s="W3-D4-04 qualified useLayoutEffect vs useEffect sticky premium bar measurement before paint after paint console tag">
+          <td class="say">I implemented the dock measurement in <code>useLayoutEffect</code> so it lands before paint, otherwise the browser paints once at the fallback offset and a passive effect corrects it only afterwards. Qualified, and I will raise it myself: you will not see it move. The bar is <code>position: sticky</code> because product wanted it to travel with the wizard, and a sticky <code>top</code> is a scroll-triggered clamp this short wizard never reaches — so read the two console tags below, not the screen. I downgraded the row rather than reverting the CSS to make the demo look better.</td>
+          <td class="con"><span class="cid q">W3-D4-04 [~]</span></td>
           <td class="file"><span class="path">src/routes/quoteWizard/StickyPremiumSummary.tsx — <span class="ex">StickyPremiumSummary</span> <span class="ln">(L70)</span></span></td>
         </tr>
         <tr data-s="C-01 useId TextField repeated fieldset insured party duplicate id label focuses wrong input">
@@ -604,7 +604,7 @@
     <div class="console"><b>CONSOLE — only with the layout-effect toggle on</b>
       <div>[StickyPremiumSummary] useLayoutEffect corrected top: 0px → 118.0px, 0.31ms after commit (before paint)</div>
       <div>[StickyPremiumSummary] useEffect corrected top: 0px → 118.0px, 17.8ms after commit (after paint — the fallback was already on screen)</div>
-      <div><i>Point at the two parenthetical phrases. That is the whole concept.</i></div>
+      <div><i>Point at the two parenthetical phrases. That is the whole concept — and since the bar went back to <code>position: sticky</code> it is also the only evidence, because the panel itself does not move. Do not promise a jump.</i></div>
     </div>
   </div>
 </section>
