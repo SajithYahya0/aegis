@@ -72,6 +72,15 @@ button {
 /* -------------------------------------------------------------------------- */
 
 :root {
+  /*
+   * Declares which of the two palettes below is live. `color-scheme` is not
+   * decoration: it is what makes the UA-rendered parts of the page — the
+   * <select> popup, the <input type="date"> picker, scrollbars, the canvas
+   * behind an overscroll — follow the theme. Without it a fully dark page
+   * still opens a white native date picker.
+   */
+  color-scheme: light;
+
   /* Neutral ramp — a back-office console, not a consumer app. */
   --c-bg: #f4f5f7;
   --c-surface: #ffffff;
@@ -99,6 +108,23 @@ button {
   --c-status-cancelled-soft: #eceef1;
   --c-danger: #b3261e;
   --c-danger-soft: #fdecea;
+
+  /*
+   * The travelling highlight in a loading skeleton, and the transparent stop
+   * at each end of it. Both are tokens because this is the one colour in the
+   * app whose *direction* flips between themes: on a light bar the sweep is a
+   * white lift, and a white lift over a #262c35 bar in dark mode is a strobe
+   * — a bright band pulsing once every 1.2s on every loading screen. The
+   * dark theme keeps the same hue and drops the alpha to a lift you can
+   * barely name, which is what a shimmer is supposed to be.
+   *
+   * The zero-alpha ends are their own token rather than the keyword
+   * `transparent`, which resolves to rgba(0,0,0,0): matching the highlight's
+   * hue guarantees the ramp stays a pure alpha fade with no grey cast in the
+   * middle, whatever a given engine does about premultiplied interpolation.
+   */
+  --c-shimmer: rgba(255, 255, 255, 0.7);
+  --c-shimmer-edge: rgba(255, 255, 255, 0);
 
   /* Spacing scale — 4px base. */
   --s-1: 4px;
@@ -130,6 +156,91 @@ button {
 
   --nav-width: 224px;
   --header-height: 52px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Dark theme                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Colour tokens ONLY. Spacing, radius, font and size tokens are deliberately
+ * absent from this block: a theme is a repaint, and re-declaring `--s-4` here
+ * would mean the two themes could drift into different layouts, so a bug
+ * reproducible in one would not reproduce in the other.
+ *
+ * There is no `@media (prefers-color-scheme: dark)` anywhere in this file, on
+ * purpose. A media query and an attribute selector are two independent
+ * switches driving one palette: a user on a dark OS who picks Light would get
+ * light tokens from `:root` and dark tokens from the media query, and which
+ * one wins is decided by source order rather than by the choice they made.
+ * The System option resolves `prefers-color-scheme` in JS (see the theme
+ * effect in `src/shared/layout/AppLayout.tsx`) and sets this same attribute,
+ * so the attribute stays the single switch and a manual choice can always
+ * override the OS.
+ */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /*
+   * Not the light ramp inverted. An inverted ramp puts near-white text on pure
+   * black, and that contrast (21:1) haloes on an OLED panel; both ends are
+   * compressed instead — a near-black ground, an off-white text. Surfaces get
+   * *lighter* as they come forward, the reverse of light mode, where the
+   * sunken surface is the darker one.
+   */
+  --c-bg: #12151a;
+  --c-surface: #1a1e25;
+  --c-surface-alt: #1f242c;
+  --c-surface-sunken: #262c35;
+  --c-border: #2f3640;
+  --c-border-strong: #454e5b;
+  --c-text: #e6e9ee;
+  --c-text-muted: #a3acba;
+  --c-text-faint: #868f9d;
+
+  /*
+   * The light accent (#1f4f8f) is a dark blue: a text colour on white, and
+   * unreadable on #12151a. Dark mode preserves the accent's *role* — link,
+   * active nav, focus ring — not its value, so it moves up the ramp to 5.6:1
+   * against the page. The soft variant becomes a tint rather than a wash;
+   * `.stepActive` sets accent on accent-soft, the tightest pairing in the app,
+   * and it lands at 5.5:1.
+   */
+  --c-accent: #6aa5f0;
+  --c-accent-hover: #8dbcf7;
+  --c-accent-soft: #1b2c44;
+
+  /*
+   * Each status keeps its hue, so the mapping learned in one theme transfers
+   * to the other — but light mode's solids are all dark inks chosen to read on
+   * white, and every one of them fails on a dark surface. Solids lighten; the
+   * softs invert from near-white washes to dark tints and stay distinct from
+   * `--c-surface-sunken`, so a cancelled badge still reads as a badge and not
+   * as a hole in the panel.
+   */
+  --c-status-active: #46c47f;
+  --c-status-active-soft: #13291d;
+  --c-status-pending: #e0a83a;
+  --c-status-pending-soft: #302510;
+  --c-status-lapsed: #f0855c;
+  --c-status-lapsed-soft: #34190f;
+  --c-status-cancelled: #a3acba;
+  --c-status-cancelled-soft: #262b33;
+  --c-danger: #f4776d;
+  --c-danger-soft: #38161a;
+
+  --c-shimmer: rgba(255, 255, 255, 0.07);
+  --c-shimmer-edge: rgba(255, 255, 255, 0);
+
+  /*
+   * A shadow is occlusion, and on a dark ground there is nothing left to
+   * occlude: a 6%-black blur over #1a1e25 is invisible. Both go darker and
+   * tighter — opacity up so the edge registers at all, spread down because a
+   * wide soft shadow on dark reads as a grey smear around the panel rather
+   * than as elevation.
+   */
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 10px 24px rgba(0, 0, 0, 0.62);
 }
 
 /* -------------------------------------------------------------------------- */

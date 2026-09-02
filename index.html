@@ -4,6 +4,64 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AEGIS — Policy &amp; Claims Console</title>
+
+    <!--
+      THEME BOOTSTRAP — deliberately an inline, blocking script in <head>, and
+      deliberately NOT a module-scope read in main.tsx.
+
+      main.tsx is loaded as <script type="module">, which is deferred by spec:
+      it does not run until the document has been parsed, and in dev it is the
+      root of a module graph Vite serves over separate requests. Either way the
+      browser has already painted a frame by the time any line of it executes,
+      and that frame is painted with the light :root tokens — so a dark-mode
+      user gets a full white flash, on every single load, no matter how early
+      in main.tsx the read sits. Being "first in the file" is not the same as
+      being before first paint.
+
+      This script has no src and no type=module, so parsing stops here and it
+      runs synchronously, before <body> exists and therefore before anything is
+      painted. That is the only position in the document where the flash can be
+      prevented rather than shortened.
+
+      It also sets color-scheme inline, not just data-theme. In dev the
+      stylesheet is injected by JS and so is subject to the same delay as
+      main.tsx; until it lands there are no tokens at all and the UA paints its
+      own default canvas, which is white. color-scheme is the one lever that
+      changes that default without this file having to duplicate a hex value
+      out of global.css — which would put a second copy of the ground colour in
+      a file nobody would think to update. The inline value is removed again by
+      the theme effect in AppLayout once React is running and the stylesheet is
+      unquestionably in place, so the [data-theme] block stays the single
+      authority on colour.
+
+      The read is duplicated logic — this is the same resolution the effect in
+      AppLayout does — and duplication is the cost of the constraint: the
+      component cannot run before the paint it is trying to fix. JSON.parse is
+      required because useLocalStorage stores JSON, so the value on disk is
+      '"dark"' and not 'dark'. Everything is wrapped in try/catch: localStorage
+      throws outright on access in some privacy modes, and this script running
+      before <body> means an uncaught throw here takes the document with it.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = JSON.parse(localStorage.getItem('aegis.theme'));
+          var choice =
+            stored === 'light' || stored === 'dark' ? stored : 'system';
+          var dark =
+            choice === 'dark' ||
+            (choice === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          root.dataset.theme = dark ? 'dark' : 'light';
+          root.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (error) {
+          // No storage, or a corrupted value. Falling through leaves no
+          // data-theme at all, which is exactly the light :root default — the
+          // app renders correctly, it just does not get the pre-paint hint.
+        }
+      })();
+    </script>
   </head>
   <body>
     <!--

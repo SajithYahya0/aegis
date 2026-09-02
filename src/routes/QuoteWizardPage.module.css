@@ -85,6 +85,58 @@
 }
 
 /*
+ * The review summary. These four rules are a deliberate copy of
+ * `ClaimIntakeWizard.module.css`'s `.review`/`.reviewRow`/`.reviewLabel`/
+ * `.reviewValue`, the same way `.error` below is a copy of its `.error` —
+ * both wizards end on "here is what you entered, confirm it", and a summary
+ * that is laid out differently in the two of them reads as two different
+ * products. See the note at the top of this block's twin.
+ *
+ * The classes land on `<dl>`/`<dt>`/`<dd>` here rather than the claim
+ * wizard's `<div>`/`<span>`/`<span>`, which is why they are applied rather
+ * than shared: the markup underneath them differs, and only the paint is the
+ * same.
+ *
+ * WITHOUT THIS: `<dt>` and `<dd>` are block-level, so every label sits on
+ * its own line above its value and the seven-pair summary becomes fourteen
+ * stacked lines. The agent confirming a quote has to read down the whole
+ * column pairing labels to values by position, and the numbers — sum
+ * insured, term, prior claims — are on separate lines from their names with
+ * nothing aligning them, so they cannot be compared at a glance. The UA's
+ * default `margin-inline-start` on `<dd>` is already gone: global.css's
+ * reset zeroes every margin, which is what makes the unstyled version stack
+ * flush rather than indent.
+ */
+.review {
+  display: grid;
+  gap: var(--s-2);
+  background: var(--c-surface-sunken);
+  border-radius: var(--radius);
+  padding: var(--s-3);
+}
+
+.reviewRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.reviewLabel {
+  color: var(--c-text-muted);
+}
+
+/*
+ * `tabular-nums` for the same reason the `table` rule in global.css sets it:
+ * sum insured, term and prior-claim counts stack vertically in this block,
+ * and proportional digits make that column ragged.
+ */
+.reviewValue {
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
  * The step-transition error from `WizardNav`'s `validateStep`. Matches
  * `ClaimIntakeWizard.module.css`'s `.error` — the two wizards refuse to
  * advance for the same kind of reason and should say so the same way.

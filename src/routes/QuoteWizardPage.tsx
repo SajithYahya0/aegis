@@ -60,9 +60,21 @@
  *   draft is written to `localStorage` on every dispatch, so a blank quote is
  *   *saved*, not merely displayed, and the agent who reloads gets it back.
  *   The gate has to sit on the step transition.
+ *
+ *   No layout on the Review step's `<dl>`: `<dt>` and `<dd>` are block-level,
+ *   so each label sat on its own line above its value and the seven-pair
+ *   summary rendered as fourteen stacked lines. Pairing a label to a value
+ *   was left to reading order alone — nothing aligned them — and the three
+ *   numeric rows were separated from their own names by a line break, so the
+ *   agent confirming a quote could not scan the figures they are confirming.
+ *   That is the last screen before a draft is treated as real, which makes it
+ *   the worst screen in the wizard to make someone read twice. `.reviewRow`
+ *   is applied to a `<div>` wrapping each pair rather than to the `<dl>`,
+ *   because a flex `<dl>` would lay all fourteen children out in a single
+ *   line and lose the pairing entirely.
  */
 
-import { useState, type ReactElement } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { BASE_RATE_PER_MILLE, CATALOGUE } from '../shared/data';
 import { formatCurrency, POLICY_TYPE_LABEL } from '../shared/format';
 import { TextField } from '../shared/components/TextField';
@@ -421,29 +433,58 @@ function CoverageStep(): ReactElement {
   );
 }
 
+/*
+ * One label/value pair. The `<div>` between `<dl>` and its `<dt>`/`<dd>` is
+ * what lets `.reviewRow` be a flex container per pair: `<dl>` itself cannot
+ * do it, because a flex `<dl>` lays out all fourteen children in one line
+ * with no way to say which `<dd>` belongs to which `<dt>`. HTML explicitly
+ * permits a `<div>` here to group a term with its description, so the
+ * `<dl>`/`<dt>`/`<dd>` semantics — and the "definition list" role a screen
+ * reader announces — survive the wrapper.
+ *
+ * `value` is `ReactNode` and not `string` because three of the seven rows
+ * pass a `number` — two `.length`s and `priorClaims`. Narrowing to `string`
+ * would put a `String(...)` at those call sites purely to satisfy the prop,
+ * which is a cast that buys nothing: JSX renders a number perfectly well, and
+ * the wrapping is the kind of noise that later gets "simplified" back out by
+ * someone who cannot see what it was for.
+ */
+function ReviewRow({ label, value }: { label: string; value: ReactNode }): ReactElement {
+  return (
+    <div className={styles.reviewRow}>
+      <dt className={styles.reviewLabel}>{label}</dt>
+      <dd className={styles.reviewValue}>{value}</dd>
+    </div>
+  );
+}
+
 function ReviewStep(): ReactElement {
   const [state, dispatch] = useQuote();
 
   return (
     <section className={styles.stepBody}>
-      <dl>
-        <dt>Type</dt>
-        <dd>{POLICY_TYPE_LABEL[state.type]}</dd>
-        <dt>Location</dt>
-        <dd>
-          {state.city || '—'}, {state.state || '—'}
-        </dd>
-        <dt>Sum insured</dt>
-        <dd>{formatCurrency(state.sumInsured)}</dd>
-        <dt>Term</dt>
-        <dd>{state.termMonths} months</dd>
-        <dt>Insured parties</dt>
-        <dd>{state.insured.length}</dd>
-        <dt>Coverages selected</dt>
-        <dd>{state.selectedCoverageCodes.length}</dd>
-        <dt>Prior claims</dt>
-        <dd>{state.priorClaims}</dd>
+      <dl className={styles.review}>
+        <ReviewRow label="Type" value={POLICY_TYPE_LABEL[state.type]} />
+        <ReviewRow
+          label="Location"
+          value={`${state.city || '—'}, ${state.state || '—'}`}
+        />
+        <ReviewRow label="Sum insured" value={formatCurrency(state.sumInsured)} />
+        <ReviewRow label="Term" value={`${state.termMonths} months`} />
+        <ReviewRow label="Insured parties" value={state.insured.length} />
+        <ReviewRow label="Coverages selected" value={state.selectedCoverageCodes.length} />
+        <ReviewRow label="Prior claims" value={state.priorClaims} />
       </dl>
+
+      {/*
+        Outside the `<dl>`, not merely after it. "Start over" discards the
+        whole draft, and a destructive control rendered among the values it
+        destroys reads as one more row of the summary. The `.review` block's
+        sunken background is what makes the boundary visible; `.stepBody >
+        button` keeps the button at its own width rather than stretching it
+        into a full-width bar directly under the panel, which would look like
+        the panel's footer.
+      */}
       <button type="button" onClick={() => dispatch({ type: 'RESET' })}>
         Start over
       </button>
