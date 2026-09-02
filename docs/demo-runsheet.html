@@ -382,7 +382,7 @@
     <div class="do"><b>CLICK</b>
       <ol>
         <li>Search <code>POL-00024</code> on /policies, click the id. (Lapsed, health, 1 claim on file, 3 coverage lines.)</li>
-        <li>Point at the renewal countdown ticking in the header. Stop moving the mouse for 30s at some point — "Session idle" appears.</li>
+        <li>Point at the renewal countdown in the header — <code>3,962 days</code>, days only, because a policy renewing eleven years out does not need a seconds hand. Then take your hand off the mouse and keyboard for 30s: <b style="display:inline">"Session idle"</b> appears next to it. That badge is what the once-a-second interval is for.</li>
         <li>Read the amber reinstatement line under the summary card.</li>
         <li>Header → <code>Viewing as</code> → <b style="display:inline">Underwriter</b>. The wording of that line changes. Switch back to Agent.</li>
         <li>Click <code>Claims</code>, then <code>Documents</code>, then back to <code>Coverage</code>. Watch the console for <code>[api]</code> lines.</li>
@@ -424,12 +424,12 @@
         <tr data-s="W2-D1-04 useEffect cleanup interval clearInterval renewal countdown unmounted">
           <td class="say">I implemented <code>clearInterval</code> in the effect's cleanup, otherwise every policy you open leaves its countdown ticking forever behind the one on screen — five policies in a session, five intervals calling setState on components that no longer exist.</td>
           <td class="con"><span class="cid">W2-D1-04</span></td>
-          <td class="file"><span class="path">src/shared/hooks/useRenewalCountdown.ts — <span class="ex">useRenewalCountdown</span> <span class="ln">(L76)</span></span><span class="path">src/routes/policyDetail/RenewalCountdown.tsx — <span class="ex">RenewalCountdown</span> <span class="ln">(L26)</span></span></td>
+          <td class="file"><span class="path">src/shared/hooks/useRenewalCountdown.ts — <span class="ex">useRenewalCountdown</span> <span class="ln">(L92)</span></span><span class="path">src/routes/policyDetail/RenewalCountdown.tsx — <span class="ex">RenewalCountdown</span> <span class="ln">(L43)</span></span></td>
         </tr>
         <tr data-s="W2-D2-02 useRef mutable no re-render lastActivityRef mousemove idle">
           <td class="say">I implemented the last-activity timestamp as a ref, not state, otherwise it is written at pointer frequency and the whole detail page re-renders dozens of times a second while the mouse simply rests on it.</td>
           <td class="con"><span class="cid">W2-D2-02</span></td>
-          <td class="file"><span class="path">src/shared/hooks/useRenewalCountdown.ts — <span class="ex">lastActivityRef</span> <span class="ln">(L82)</span></span></td>
+          <td class="file"><span class="path">src/shared/hooks/useRenewalCountdown.ts — <span class="ex">lastActivityRef</span> <span class="ln">(L98)</span></span></td>
         </tr>
         <tr data-s="W3-D3-03 per tab Suspense boundary countdown restart App.tsx nested">
           <td class="say">I implemented a <code>&lt;Suspense&gt;</code> per <em>tab</em> as well as per route, otherwise clicking Claims unmounts the policy header, the countdown and the tab nav — including the link you just clicked — and the countdown restarts from scratch on every tab switch.</td>
@@ -995,7 +995,7 @@
     <div class="item bad">
       <h3><span class="t">D4 · <code>failure-modes.md</code> W2-D2-02 names a ref that was deleted</span></h3>
       <p><b>CLAIMED</b> <em>"<code>useRenewalCountdown</code>'s <code>timerRef</code>/<code>lastActivityRef</code>"</em>.</p>
-      <p><b>FOUND</b> <code>timerRef</code> no longer exists — the interval id is a plain closure <code>const timer</code> (<code>useRenewalCountdown.ts</code> L98). The matrix records the removal and the reason; <code>failure-modes.md</code> was not updated to match. <code>lastActivityRef</code> (L82) is real and earns the row on its own.</p>
+      <p><b>FOUND</b> <code>timerRef</code> no longer exists — the interval id is a plain closure <code>const timer</code> (<code>useRenewalCountdown.ts</code> L114). The matrix records the removal and the reason; <code>failure-modes.md</code> was not updated to match. <code>lastActivityRef</code> (L98) is real and earns the row on its own.</p>
       <p><b>SO SAY</b> If he reads that row aloud: <em>"that line is stale — <code>timerRef</code> was removed in the audit as a ref where a closure const already sufficed. <code>lastActivityRef</code> is the one that matters, and it's the stronger example anyway."</em></p>
     </div>
 

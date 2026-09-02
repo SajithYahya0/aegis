@@ -1,12 +1,25 @@
 /**
  * WHY THIS EXISTS:
- *   Drives the renewal countdown on `/policies/:id` — a days/hours/minutes/
- *   seconds readout ticking down to a policy's `endDate` — and, sharing the
- *   same "how long since anything happened" machinery, an idle-session flag
- *   for the same view. Both are `setInterval` problems: one interval, two
- *   things it checks each tick.
+ *   Drives two things on `/policies/:id` off one `setInterval`: how long until
+ *   a policy's `endDate`, and whether the session has gone idle. One interval,
+ *   two things it checks each tick.
  *
  * CONCEPTS: W2-D1-04, W2-D2-02
+ *
+ * WHY THE TICK IS ONCE A SECOND:
+ *   The idle flag, and only the idle flag. `RenewalCountdown` renders days —
+ *   a figure that changes once a day — so nothing on screen needs a per-second
+ *   interval to stay current. `IDLE_THRESHOLD_MS` does: going idle is the
+ *   *absence* of events, and absence fires no event, so the only way to notice
+ *   30s of nothing is to keep asking. The tick interval is the resolution of
+ *   that question — at `TICK_MS = 1000` the badge appears within a second of
+ *   the threshold; at a one-minute tick it would appear up to a minute late,
+ *   and at an hourly one the flag would be decorative. A slower interval cannot
+ *   detect a 30s threshold, which is the whole argument for this one.
+ *
+ *   The hook still returns hours/minutes/seconds. They are a correct split of
+ *   the same remaining-milliseconds figure and cost nothing to compute; the
+ *   display's decision not to show them is the display's.
  *
  * WITHOUT THIS:
  *   No cleanup on the interval: `PolicyDetailPage` unmounts (the agent
@@ -19,14 +32,16 @@
  *   the one currently on screen. `clearInterval` in the effect's cleanup is
  *   what stops that, and it has to run on *every* unmount, not just when
  *   the component happens to still be mounted when the countdown reaches
- *   zero.
+ *   zero. The activity listeners are the same story: three `document`-level
+ *   listeners per policy opened, never removed.
  *
  *   `lastActivityRef` as `useState` instead of `useRef`: it updates on every
  *   `mousemove`, so idle tracking would re-render the whole policy detail page
  *   dozens of times a second while the mouse is simply resting on it — an idle
  *   detector that makes the page busy while the user is idle has inverted its
  *   own purpose. The tick-driven `useState` below exists precisely to be the
- *   *one* controlled place per second where a re-render is actually warranted.
+ *   *one* controlled place where a re-render is allowed to happen, at a rate
+ *   this file chooses rather than one the pointer chooses.
  *
  *   That is the whole rule, and it is worth stating as a rule because this file
  *   previously got it wrong in the other direction: ref when the write
@@ -45,6 +60,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+/** Poll resolution for `IDLE_THRESHOLD_MS` — see the header. Not a display rate. */
 const TICK_MS = 1000;
 const IDLE_THRESHOLD_MS = 30_000;
 const ACTIVITY_EVENTS: readonly (keyof DocumentEventMap)[] = ['mousemove', 'keydown', 'click'];

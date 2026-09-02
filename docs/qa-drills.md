@@ -295,7 +295,10 @@ coverage table and the countdown.
 An idle detector that makes the page busy while the user is idle has inverted its
 own purpose. The ref lets the write happen at pointer frequency and the *read*
 happen once per second, inside the interval tick, where a single `setSnapshot`
-is genuinely warranted because the clock on screen has changed.
+is the one re-render this hook chooses to spend — at a rate the file sets rather
+than one the pointer sets. Note that the tick is not there to animate anything:
+the bar renders days, which change once a day. It is there because
+`IDLE_THRESHOLD_MS` is 30s and no event fires when the user *stops* moving.
 
 That is the general shape of the rule: ref when the write frequency and the
 render frequency are different, state when they are the same.

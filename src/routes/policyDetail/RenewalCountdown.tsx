@@ -5,6 +5,11 @@
  *   just renders what it returns and shows the idle-session flag alongside
  *   it, since both come from the same hook and the same underlying interval.
  *
+ *   It renders **days only**. The hook still returns hours/minutes/seconds,
+ *   but policies renew years out, so a full `3962d 13h 11m 13s` readout is a
+ *   wall of digits where three of the four fields are never the reason anyone
+ *   looked at the bar.
+ *
  * CONCEPTS: (consumer of useRenewalCountdown — see that hook for W2-D1-04, W2-D2-02)
  *
  * WITHOUT THIS:
@@ -17,25 +22,31 @@
 
 import type { ReactElement } from 'react';
 import { useRenewalCountdown } from '../../shared/hooks/useRenewalCountdown';
+import { formatNumber } from '../../shared/format';
 import styles from './RenewalCountdown.module.css';
 
 export interface RenewalCountdownProps {
   endDate: string;
 }
 
+/**
+ * Grouped, not zero-padded: `3,962 days`. Zero-padding a four-digit figure to a
+ * fixed width buys column alignment nobody needs here — there is one of these
+ * per page, not a table of them — at the cost of reading like a serial number.
+ */
+function formatDaysRemaining(days: number, isExpired: boolean): string {
+  if (isExpired) return '0 days';
+  if (days === 0) return 'Today';
+  return days === 1 ? '1 day' : `${formatNumber(days)} days`;
+}
+
 export function RenewalCountdown({ endDate }: RenewalCountdownProps): ReactElement {
-  const { daysRemaining, hoursRemaining, minutesRemaining, secondsRemaining, isExpired, isIdle } =
-    useRenewalCountdown(endDate);
+  const { daysRemaining, isExpired, isIdle } = useRenewalCountdown(endDate);
 
   return (
     <div className={styles.bar}>
       <span className={styles.label}>{isExpired ? 'Renewal overdue' : 'Renews in'}</span>
-      <span className={styles.clock}>
-        {String(daysRemaining).padStart(2, '0')}d{' '}
-        {String(hoursRemaining).padStart(2, '0')}h{' '}
-        {String(minutesRemaining).padStart(2, '0')}m{' '}
-        {String(secondsRemaining).padStart(2, '0')}s
-      </span>
+      <span className={styles.clock}>{formatDaysRemaining(daysRemaining, isExpired)}</span>
       {isIdle ? <span className={styles.idle}>Session idle</span> : null}
     </div>
   );
