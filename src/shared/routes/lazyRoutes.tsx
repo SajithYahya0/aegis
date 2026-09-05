@@ -28,8 +28,8 @@
  *   the single biggest thing this file moves.
  *
  *   What did NOT split, and why it is worth knowing: `src/shared/data` stays in
- *   the entry chunk. `AppLayout` renders on every route and reads `AS_OF` from
- *   it for the valuation-date line in the header, and a module reachable from
+ *   the entry chunk. `AppShell` renders on every route and reads `AS_OF` from
+ *   it for the valuation-date line in the app bar, and a module reachable from
  *   a statically-imported component cannot be in a lazy chunk — one static
  *   import anywhere pins the whole module graph below it. `React.lazy` splits
  *   the graph where the imports are, not where the intent is, so a single

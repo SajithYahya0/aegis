@@ -44,7 +44,13 @@ import { daysUntil } from '../format';
 import type { Policy, PolicyStatus, PolicyType } from '../types';
 import { useDebounce } from './useDebounce';
 
-const EXPIRING_WINDOW_DAYS = 30;
+/**
+ * Exported because /dashboard's renewal table has to mean the same thing by
+ * "expiring" as the `expiring=1` filter this hook applies — the dashboard row
+ * links straight into that filtered list, so two different windows would show
+ * the user a count of 9 and then a list of 14 with no explanation.
+ */
+export const EXPIRING_WINDOW_DAYS = 30;
 const DEBOUNCE_MS = 300;
 
 export interface PolicyFilters {

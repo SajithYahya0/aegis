@@ -79,7 +79,7 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W2-D4-01 | `BrowserRouter` setup | R | `main.tsx` | `src/main.tsx` — `<BrowserRouter>` wrapping `<App/>` inside `<StrictMode>` in the `createRoot(...).render` call | [x] |
 | W2-D4-02 | `Routes` / `Route` / index route | R | `App.tsx` | `src/App.tsx` — `App` | [x] |
 | W2-D4-03 | Nested routes + `<Outlet>` | R | `/policies/:id` → Coverage \| Claims \| Documents tabs | `src/routes/PolicyDetailPage.tsx` — `PolicyDetailPage` | [x] |
-| W2-D4-04 | `<Link>` / `<NavLink>` with active styling | R | Sidebar nav, detail tabs | `src/shared/layout/AppLayout.tsx` — `AppLayout` | [x] |
+| W2-D4-04 | `<Link>` / `<NavLink>` with active styling | R | Sidebar nav, detail tabs | `src/shared/layout/AppShell.tsx` — `AppShell` (`ListItemButton component={NavLink}`; React Router appends its own `active` class to the className MUI hands down, which the `&.active` block in `sx` styles from the theme rather than from a CSS Module). Moved out of `AppLayout` this pass — `AppLayout` still owns the `<Outlet>`, the chrome around it is `AppShell` | [x] |
 | W2-D4-05 | `useParams` | R | Policy id in detail route | `src/routes/PolicyDetailPage.tsx` — `PolicyDetailPage` | [x] |
 | W2-D4-06 | `useNavigate` (incl. `replace`) | R | Redirect after claim submit; unauth redirect | `src/shared/routes/RequireRole.tsx` — `RequireRole` | [x] |
 | W2-D4-07 | `useSearchParams` — filters in the URL | R | Policy list status/type/query params | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` | [x] |
@@ -100,7 +100,7 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W3-D1-05 | `useCallback` — stable handler into memo child | R | `onSelect` passed to `PolicyRow` | `src/routes/PoliciesPage.tsx` — `handleSelect` | [x] |
 | W3-D1-06 | When NOT to optimise (documented counter-example) | R | `docs/failure-modes.md` + header note on a deliberately un-memoised leaf | `src/routes/policies/FilterStatus.tsx` — `FilterStatus` (header note; the `docs/failure-modes.md` companion table is Phase 5's, per `docs/phase-prompts.md`) | [x] |
 | W3-D2-01 | Rules of hooks (violation demonstrated) | R | Registered lab defect: conditional hook call | `src/shared/labs/ConditionalHookDemo.tsx` — `ConditionalHookDemo` | [x] |
-| W3-D2-02 | Custom hook — `useLocalStorage` | R | Recently-viewed policies list on /policies; persisted theme choice in the app header | `src/shared/hooks/useLocalStorage.ts` — `useLocalStorage`, used by `src/routes/PoliciesPage.tsx` and `src/shared/layout/AppLayout.tsx` (theme). The claim is unchanged — it was already satisfied by the first caller. The second is listed because a hook with one caller is indistinguishable from a function that should have been inlined, and the two callers hold unrelated value types (a list of policy ids, a `ThemeChoice` union), which is what makes the generic parameter load-bearing rather than decorative | [x] |
+| W3-D2-02 | Custom hook — `useLocalStorage` | R | Recently-viewed policies list on /policies; persisted theme choice in the app header | `src/shared/hooks/useLocalStorage.ts` — `useLocalStorage`, used by `src/routes/PoliciesPage.tsx` and `src/shared/theme/ThemeModeProvider.tsx` (theme). The claim is unchanged — it was already satisfied by the first caller. The second is listed because a hook with one caller is indistinguishable from a function that should have been inlined, and the two callers hold unrelated value types (a list of policy ids, a `ThemeChoice` union), which is what makes the generic parameter load-bearing rather than decorative | [x] |
 | W3-D2-03 | Custom hook — `useDebounce` | R | Policy search input | `src/shared/hooks/useDebounce.ts` — `useDebounce`, used by `src/shared/hooks/usePolicyFilters.ts` | [x] |
 | W3-D2-04 | Custom hook — `useFetch` | R | Claims history loader | `src/shared/hooks/useFetch.ts` — `useFetch`, used by `src/routes/policyDetail/PolicyClaimsTab.tsx` (not one of Phase 3's own target rows, but built as part of it and genuinely reachable — closing it now rather than leaving it stale) | [x] |
 | W3-D2-05 | Custom hook — composition (hook using hooks) | R | `usePolicyFilters` = search params + debounce + memo | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` | [x] |
@@ -110,7 +110,7 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W3-D3-02 | `React.lazy` — component-level splitting | R | Claim intake wizard (heavy, modal-only) | `src/routes/ClaimIntakePage.tsx` — module-scope `splitChunk('ClaimIntakeWizard', () => import('./claimIntake/ClaimIntakeWizard'))`, rendered only inside an open `<Modal>`. The `import()` stays in this file (it is what draws the chunk boundary); only the memoise/log/reset mechanism is shared with the route chunks — which is how its Retry got fixed alongside theirs. Verified twice: its own chunk in `vite build`, and *not* loaded while the modal is closed by `src/App.test.tsx` | [x] |
 | W3-D3-03 | `<Suspense>` fallback | R | Per-route boundary | `src/App.tsx` — `LazyRoute` (one `<Suspense>` per route **and** per `/policies/:id` tab); also `src/routes/PolicyDetailPage.tsx`, `src/routes/policyDetail/RiskExposureWidget.tsx`, `src/routes/ClaimIntakePage.tsx` | [x] |
 | W3-D3-04 | Skeleton UI while chunk loads | R | `Skeleton.tsx` variants | `src/shared/components/Skeleton.tsx` — `Skeleton` (`table` / `card` / `panel`) | [x] |
-| W3-D3-05 | Preloading on intent (hover/focus) | R | Sidebar nav preloads route chunk | `src/shared/routes/lazyRoutes.tsx` — `preloadPath` / `SplitChunk.preload`, wired to `onMouseEnter` **and** `onFocus` in `src/shared/layout/AppLayout.tsx`; logs `[chunk] ↓ … (preload)` then `⤳ … already requested (render)`. The memoisation those two lines depend on is asserted in `src/shared/routes/lazyRoutes.test.tsx` — two preloads plus a render must call the loader once | [x] |
+| W3-D3-05 | Preloading on intent (hover/focus) | R | Sidebar nav preloads route chunk | `src/shared/routes/lazyRoutes.tsx` — `preloadPath` / `SplitChunk.preload`, wired to `onMouseEnter` **and** `onFocus` in `src/shared/layout/AppShell.tsx`; logs `[chunk] ↓ … (preload)` then `⤳ … already requested (render)`. The memoisation those two lines depend on is asserted in `src/shared/routes/lazyRoutes.test.tsx` — two preloads plus a render must call the loader once | [x] |
 | W3-D4-01 | Error Boundary class component | R | `ErrorBoundary.tsx` — `getDerivedStateFromError` + `componentDidCatch` | `src/shared/components/ErrorBoundary.tsx` — `ErrorBoundary`; tested in `src/shared/components/ErrorBoundary.test.tsx` | [x] |
 | W3-D4-02 | Boundary retry that actually recovers (key bump) | R | Retry remounts children via key | `src/shared/components/ErrorBoundary.tsx` — `handleRetry` + `<Fragment key={attempt}>`, paired with `onRetry` at every call site. **Was measurably false, now repaired** — this row was flagged for downgrade and instead fixed, because the fix was available. The old claim was that the `key` bump clears `React.lazy`'s memoised rejection; it does not (a probe recorded one import attempt before Retry and one after), so `App.tsx`'s route-level Retry could never recover a failed chunk and `ClaimIntakePage`'s had the same hole. Fixed by `splitChunk().reset()` in `src/shared/routes/lazyRoutes.tsx`, wired through `App.tsx`'s `BoundedRoute` and `ClaimIntakePage`. Now three mechanisms, all tested: the remount and the eviction ordering in `ErrorBoundary.test.tsx`, the lazy reset in `src/shared/routes/lazyRoutes.test.tsx` — including a negative test that fails if remounting ever starts recovering on its own. `ErrorBoundary.tsx`'s header carries the correction | [x] |
 | W3-D4-03 | Scoped boundary — widget fails, page survives | R | Claims widget throws; policy detail still renders | `src/routes/policyDetail/RiskExposureWidget.tsx` — `RiskExposurePanel`, wired to `api.ts`'s always-rejecting `fetchRiskFeed` behind the `risk-feed-outage` lab toggle. **Deliberate deviation:** the failing widget is the risk feed, not the Claims tab. Making Claims the one that throws would mean converting it from the `useFetch` + `AbortController` path to the `use()` + Suspense path, and CLAUDE.md requires both paths to exist *and* to be contrastable — they now sit on the same page, one tab apart. `fetchRiskFeed` was built in Phase 0 for exactly this row (see its header) | [x] |
@@ -130,14 +130,14 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | ID | Concept | Tier | Feature that forces it | File / Export | Done |
 |---|---|---|---|---|---|
 | W4-D1-01 | `ThemeProvider` + `CssBaseline` mounted above the router | R | Theme and baseline reset must apply to every MUI route, so they mount above `BrowserRouter` in `main.tsx` | `src/shared/theme/ThemeModeProvider.tsx` — `ThemeModeProvider`, mounted in `src/main.tsx` **outside** `<BrowserRouter>`. Closed as a prerequisite of the W4-D2 rows rather than as part of that target list: `sx`, `styled()` and the custom `status` key are all reads off the theme context, so none of them can be demonstrated — or even rendered without throwing — until a provider exists. Measured, not assumed: a temporary probe dumped the `body` rule Emotion injects before and after a mode change (`background-color:#f4f5f7` → `#12151a`, `color:#16191d` → `#e6e9ee`), which is `CssBaseline` doing the repaint. The probe was deleted; the durable part of it is `src/shared/theme/ThemeModeProvider.test.tsx` | [x] |
-| W4-D1-02 | MUI core components (`AppBar`, `Card`, `Table`, `Dialog`, `Button`, `TextField`) | R | `/dashboard` KPI cards, `/underwriting` table, `ClaimIntakeWizard` dialog |  | [ ] |
-| W4-D1-03 | `Grid2` / `Box` / `Stack` layout | R | `/dashboard` KPI grid and `/underwriting` filter bar |  | [ ] |
-| W4-D1-04 | Responsive breakpoints via theme, not media queries | R | `/dashboard` grid collapsing to one column on narrow viewports |  | [ ] |
+| W4-D1-02 | MUI core components (`AppBar`, `Card`, `Table`, `Dialog`, `Button`, `TextField`) | R | `/dashboard` KPI cards, `/underwriting` table, `ClaimIntakeWizard` dialog | `src/shared/layout/AppShell.tsx` — `AppShell` (`AppBar` + `Toolbar` + `Drawer`, and the `TextField select` role switcher), and `src/routes/DashboardPage.tsx` — `DashboardPage` (four metric `Card`s, the expiring-policies `Table`). **Qualified — four of the six named components.** `Dialog` and `Button` are not here. `ClaimIntakeWizard` is the surface that wants a `Dialog` and it is still a pre-Week-4 placeholder (W4-D5); `Button` has no call site on either surface this pass built — the dashboard's one affordance is a link into `/policies?expiring=1`, which is a `Link`, and the two app-bar controls are an `IconButton` and a select. Rendering a `Button` that does nothing, or dressing the link as one, would be a component placed for this row rather than for the page, which `CLAUDE.md` ranks below an honest gap | [~] |
+| W4-D1-03 | `Grid2` / `Box` / `Stack` layout | R | `/dashboard` KPI grid and `/underwriting` filter bar | `src/routes/DashboardPage.tsx` — `DashboardPage`: one `Grid` container (`@mui/material/Grid2`) holding all six items — four metric cards at `size={{ xs: 12, sm: 6, md: 3 }}`, the renewals table at `{ xs: 12, md: 8 }`, the claims breakdown at `{ xs: 12, md: 4 }` — with `Box` for the page column and `Stack` for the in-card rows. `Box`/`Stack` also carry `AppShell`'s toolbar and nav regions. One container rather than one per row, so the vertical gutter between the metric row and the panel row is the same 16px as the horizontal one | [x] |
+| W4-D1-04 | Responsive breakpoints via theme, not media queries | R | `/dashboard` grid collapsing to one column on narrow viewports | `src/routes/DashboardPage.tsx` (the `size` objects above, plus `sx={{ display: { xs: 'none', sm: 'table-cell' } }}` dropping the Customer and Type columns on narrow viewports) and `src/shared/layout/AppShell.tsx` (`display: { xs: 'none', md: 'block' }` swapping the permanent `Drawer` for the temporary one, and the app bar's progressive disclosure of the valuation date and branch). Every one of those keys is resolved by MUI against `theme.breakpoints`; neither file hand-writes a media query, which is what stops the drawer's `md` and the grid's `md` from drifting into a band of widths where the nav has collapsed but the content has not | [x] |
 | W4-D2-01 | `createTheme` palette incl. custom `status` key | R | Policy/claim status colours on MUI surfaces — the theme-level counterpart to `STATUS_CLASS` (W1-12) | `src/shared/theme/theme.ts` — `createAegisTheme` (`palette.status`: four `{ main, soft }` pairs mirroring `--c-status-*` / `--c-status-*-soft` in `global.css`), typed — not `any` — by the `Palette`/`PaletteOptions` augmentation in `src/shared/theme/theme.d.ts`. Read by `StatusChip` on /dashboard; values pinned per mode in `ThemeModeProvider.test.tsx`. The augmentation file is named `mui-augment.d.ts` and not `theme.d.ts` for a reason recorded in its own header: a `.d.ts` beside a `.ts` of the same basename is dropped by TypeScript's wildcard matcher, so it was in the repo, looked correct, and was not in the program — the symptom being three errors in *other* files | [x] |
 | W4-D2-02 | Typography + spacing overrides, `defaultProps`, `styleOverrides` | R | House style declared once in the theme instead of per-component | `src/shared/theme/theme.ts` — `createAegisTheme`: `typography.h1`/`h2`/`body2` and `button` (`textTransform: 'none'`), `spacing: 8`, `components.MuiButton.defaultProps` (`disableElevation`), `components.MuiCard.styleOverrides.root` (6px, matching `.panel`). `typography.body1` is overridden too, and not for house style: `CssBaseline` spreads body1 onto `body` and its sheet lands after `global.css`, so MUI's default 1rem would have become the base font size for the *whole* app — CSS Modules routes included. Caught by the probe described on W4-D1-01, which showed `font-size:13px` in the emitted `body` rule | [x] |
-| W4-D2-03 | Dark/light toggle persisted through `useLocalStorage` | R | AppBar theme toggle in `AppLayout`, surviving reload via the existing `useLocalStorage` (W1-07, C-08) | `src/shared/theme/ThemeModeProvider.tsx` — `ThemeModeProvider` / `useThemeChoice`, driven by the Theme `<select>` in `src/shared/layout/AppLayout.tsx`; persisted under `aegis.theme` by `useLocalStorage`, resolved for `'system'` against `matchMedia`, and read pre-paint by the bootstrap script in `index.html`. Reload survival is pinned by `src/shared/theme/ThemeModeProvider.test.tsx` (a `cleanup()` then a fresh mount, so only `localStorage` crosses the boundary). **Qualified — the control is not the AppBar's.** The persistence, the `'system'` resolution and the MUI-mode wiring are real and observable; the toggle is still the CSS Modules `<select>` this app has had since Phase 1, because no MUI `AppBar` exists yet — that is W4-D1-02's build. Nothing here is faked by the substitute control, but the row names a component that is not there, and that is recorded rather than glossed | [~] |
+| W4-D2-03 | Dark/light toggle persisted through `useLocalStorage` | R | AppBar theme toggle in `AppLayout`, surviving reload via the existing `useLocalStorage` (W1-07, C-08) | `src/shared/theme/ThemeModeProvider.tsx` — `ThemeModeProvider` / `useThemeChoice`, driven by the Theme `<select>` in `src/shared/layout/AppLayout.tsx`; persisted under `aegis.theme` by `useLocalStorage`, resolved for `'system'` against `matchMedia`, and read pre-paint by the bootstrap script in `index.html`. Reload survival is pinned by `src/shared/theme/ThemeModeProvider.test.tsx` (a `cleanup()` then a fresh mount, so only `localStorage` crosses the boundary). **Repaired this pass — the control is now the AppBar's.** The `<select>` this row was qualified on is gone with the CSS Modules header; the toggle is the `IconButton` in `src/shared/layout/AppShell.tsx`, calling the same `setChoice`. It cycles Light → Dark → System rather than toggling two states, because `'system'` is the only choice that keeps the `matchMedia` subscription alive — a two-state button would make the first click a one-way door out of "follow my OS" | [x] |
 | W4-D2-04 | `styled()` API | R | A reusable themed component used on more than one MUI surface | `src/shared/theme/StatusChip.tsx` — `StatusChip` (`styled(Chip, { shouldForwardProp })` reading `theme.palette.status[status]`), rendered on /dashboard's book-by-status strip. The deliberate duplicate of `.statusActive`…`.statusCancelled` in `src/routes/policies/PolicyRow.module.css`, which stays; its header states what each of the two approaches costs. **Qualified — one MUI surface, not more than one.** /underwriting and `ClaimIntakeWizard` are the other two MUI surfaces `CLAUDE.md` names, and both are still pre-Week-4 placeholders, so there is exactly one surface to consume this today. Giving it a second consumer now would mean building a status list somewhere for the component's benefit rather than the app's | [~] |
-| W4-D2-05 | `sx` prop | R | One-off spacing/alignment adjustments that do not earn a `styled()` component | `src/routes/DashboardPage.tsx` — `DashboardPage` (`sx` on `Box`/`Stack`/`Typography` for the column gap, the redirect notice's padding and ground, and the status strip's `mt`/`rowGap`) — every one used once, on one page, with no variant axis. The contrast is the point and is argued in both headers: the badge on the same page is a `styled()` component because it is reused and varies by `PolicyStatus`, and `StatusChip.tsx` spells out why the reverse assignment fails in both directions | [x] |
+| W4-D2-05 | `sx` prop | R | One-off spacing/alignment adjustments that do not earn a `styled()` component | `src/routes/DashboardPage.tsx` — `DashboardPage` (`sx` on `Box`/`Stack`/`Typography`/`Card`/`TableCell` for the page column gap, the redirect notice's padding and ground, the equal-height cards, the claims proportion bars and the per-breakpoint column hiding) and `src/shared/layout/AppShell.tsx` (the app bar's `zIndex` callback and border, the drawer paper width, the nav item's `&.active` state) — every one used once, in one place, with no variant axis. The contrast is the point and is argued in both headers: the badge on the same page is a `styled()` component because it is reused and varies by `PolicyStatus`, and `StatusChip.tsx` spells out why the reverse assignment fails in both directions | [x] |
 | W4-D3-01 | axios instance + `baseURL` | R | Single configured client for every Week 4 request |  | [ ] |
 | W4-D3-02 | Request interceptor — token attach | R | Auth token attached to every outgoing request without each call site knowing |  | [ ] |
 | W4-D3-03 | Response interceptor — logging + error normalisation | R | One error shape reaching the UI regardless of what the transport returned |  | [ ] |
@@ -198,7 +198,7 @@ directly (see the Week 2 section above).
 
 ## Known weak claims
 
-**Total rows: 106. Solid `[x]`: 81. Qualified `[~]`: 7. Not built `[ ]`: 18.**
+**Total rows: 106. Solid `[x]`: 84. Qualified `[~]`: 7. Not built `[ ]`: 15.**
 
 > Corrected in Week 4 Day 2: this line read "Total rows: 83 … Not built: 1"
 > until now, and both numbers had been wrong since the Week 4 section was
@@ -256,10 +256,20 @@ explicitly, and an honest `[ ]` is the side of it this repo takes.
 | C-07 | `useFormStatus` | Real in `ClaimIntakeWizard`. Unobservable in `PolicyClaimsTab`'s `ClaimForm`: `handleLogClaim` closes the modal before its `await`, unmounting the form before `pending` can render. | Keeping the modal open until the action settles — which would cover the optimistic row (C-05) that is the actual feedback. The two features are in real tension; the hook loses. |
 | W3-D4-04 | `useLayoutEffect` vs `useEffect` | **Not built.** The concept lost its home when the premium bar moved into normal flow: under `position: sticky` the measured offset was not just unobservable but actively wrong, so the measurement and both effect branches were deleted rather than kept as dead code. `useLayoutEffect` appears nowhere under `src/`. | A feature that genuinely must read a rendered dimension before paint — a tooltip or popover positioned against its anchor, a virtualised list measuring row heights. This app has none, and adding one to carry the row would be a component built for the matrix. Recorded as a gap instead. |
 | W2-D1-01 | Mount-only fetch (`[]` deps) | No `[]`-deps *fetch* exists. `useFetch`'s `[policyId]` effect runs once on mount, but that is an argument for not building the row, not a demonstration of it. | A feature that genuinely fetches once and never refetches. Adding one to `PolicyClaimsTab` would ship the stale-data bug `useFetch` exists to prevent. |
-| W4-D2-03 | Persisted theme toggle | The mechanism is fully observable — pick Dark, reload, it is still dark, and both the CSS Modules and MUI halves repaint together. What is missing is the *control the row names*: there is no MUI `AppBar`, so the toggle is still the header `<select>`. | W4-D1-02 building the AppBar and the switcher moving into it. No change to `ThemeModeProvider` is needed — only the control that calls `setChoice`. |
 | W4-D2-04 | `styled()` on more than one surface | `StatusChip` is real, themed, and rendered — but on /dashboard only. The row asks for reuse across MUI surfaces, and the other two (/underwriting, `ClaimIntakeWizard`) are still pre-Week-4 placeholders, so "reusable" is currently an assertion about the component rather than an observation about the app. | The /underwriting queue table (W4-D4-03) rendering policy status, which is a surface that wants the badge for its own reasons. Inventing a second consumer before then would be a component built for this file. |
 
 ### Repaired rather than downgraded
+
+**W4-D2-03** left this table in Week 4 Day 1. It was qualified because the theme
+mechanism was real but the control the row names — an AppBar toggle — did not
+exist, so the switcher was still the CSS Modules `<select>`. `AppShell` built
+the AppBar and the `IconButton` moved into it, calling the same `setChoice`.
+`ThemeModeProvider` was not touched, which is what the qualification predicted.
+The one deviation from the row's wording is deliberate and is argued in
+`AppShell.tsx`'s header: the button steps Light → Dark → System rather than
+toggling two states, because `'system'` is the only choice that keeps the
+`matchMedia` subscription alive, and a two-state control would make the first
+click a one-way door out of it.
 
 **W3-D4-02** was the sixth row this audit flagged, and it was the only one where
 the claim was not merely inert but **measurably false**: `ErrorBoundary`'s header
@@ -287,7 +297,7 @@ held its interval id in a ref where the effect's own closure already sufficed.
 
 ## Audit
 
-Total rows: **106**. Solid: **81**. Qualified: **7**. Not built: **18** (W3-D4-04 plus the 17 Week 4 rows still open — see [Still unchecked after Week 4 Day 2](#still-unchecked-after-week-4-day-2)).
+Total rows: **106**. Solid: **84**. Qualified: **7**. Not built: **15** (W3-D4-04 plus the 14 Week 4 rows still open — see [Still unchecked after Week 4 Day 1](#still-unchecked-after-week-4-day-1)).
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -333,7 +343,7 @@ Total rows: **106**. Solid: **81**. Qualified: **7**. Not built: **18** (W3-D4-0
 >     route plus a separate `ClaimIntakeWizard` chunk, and `rating.ts` moved
 >     out of the entry chunk into `PoliciesPage`'s. Checked, not assumed —
 >     and the check found one thing that did *not* move: `src/shared/data`
->     stays in the entry chunk, because `AppLayout` imports `AS_OF` from it
+>     stays in the entry chunk, because the app chrome (`AppShell` since Week 4 Day 1) imports `AS_OF` from it
 >     and a module reachable from a statically-imported component cannot be
 >     lazily chunked. That is recorded in `lazyRoutes.tsx`'s header rather
 >     than quietly omitted, because "the split did not help, and the reason
@@ -443,6 +453,88 @@ their output was recorded.
 Final check before the review: open the app, click every route, and confirm each
 row's file is actually reached. A row whose code exists but is never rendered
 does not count.
+
+---
+
+## Still unchecked after Week 4 Day 1
+
+**14 Week 4 rows, plus W3-D4-04.** This pass closed its three remaining target
+rows — W4-D1-02, W4-D1-03, W4-D1-04 — and repaired W4-D2-03, which had been
+qualified since Day 2 on the absence of the very AppBar this pass built. Two
+files carry the work: `src/shared/layout/AppShell.tsx` (new — `AppBar`,
+`Toolbar`, two `Drawer`s, the role `TextField` and the theme `IconButton`) and
+a rebuilt `src/routes/DashboardPage.tsx` (`Grid2` + `Box` + `Stack`, four
+metric `Card`s, the expiring-policies `Table`, the claims breakdown).
+
+One of the three is `[~]`, and for the reason this document keeps insisting on:
+**W4-D1-02 names six components and four are built.** `Dialog` belongs to
+`ClaimIntakeWizard`, which is still a pre-Week-4 placeholder. `Button` has no
+honest call site on either surface — the dashboard's one affordance is a
+navigation into `/policies?expiring=1`, which is a `Link`, and the app bar's
+two controls are an `IconButton` and a select. A `Button` rendered to close the
+row would be a component placed for this file's benefit rather than the page's.
+
+`AppLayout` was reduced rather than deleted: it still owns the `<Outlet>` and
+mounts `ConnectivityBanner`, and `AppShell` wraps it with the chrome. That
+split is what keeps the Week 4 boundary intact — the chrome is MUI, the content
+region is agnostic, and `/policies` renders inside it untouched. Its CSS Module
+(`AppLayout.module.css`) had no remaining consumer and was deleted; no matrix
+row referenced it (W1-12's composed class is `PolicyRow.module.css`).
+
+### The Day 2 prediction, measured
+
+The [entry-chunk section](#honest-gap-muis-runtime-is-in-the-entry-chunk) below
+closed by predicting that the next MUI surfaces "will each add only their own
+components, not another copy of Emotion", and flagged that as unmeasured. It is
+measurable now. Against the figures that section recorded, same command and
+machine:
+
+| Chunk | After Day 2 | After Day 1 |
+|---|---|---|
+| entry `index-*.js` | 359.24 kB (118.22 kB gzip) | 527.37 kB (167.58 kB gzip) |
+| `DashboardPage` | 36.01 kB | 31.43 kB |
+
+The prediction holds on the route chunk and is beside the point on the entry.
+`DashboardPage` gained a `Table`, four `Card`s and a `Grid2` container and got
+**smaller**, because the primitives underneath them are now reachable from the
+statically-imported shell and were hoisted out of it — that is the shared
+engine being paid once, exactly as claimed. The entry grew 168 kB anyway, and
+the reason is the same mechanism read the other way: `AppShell` is imported
+statically by `AppLayout`, so `AppBar`, `Drawer`, `TextField`, `Tooltip`,
+`List` and four icons are all reachable from the entry and cannot be split.
+The CSS Modules route chunks moved by under ~1 kB in either direction, which is
+the part of the claim that was never in doubt.
+
+**So the honest summary is that this pass made the code-splitting story worse in
+absolute terms and better in marginal terms**, and W3-D3-01 should still be read
+next to that section. Nothing here is fixable by lazy-loading the shell: it
+renders on every route, above the `<Outlet>`, so deferring it would replace the
+first paint of every page with a fallback.
+
+### Still open
+
+- **W4-D1 (0 of 4 open; 1 qualified):** W4-D1-02 completes when
+  `ClaimIntakeWizard` becomes a MUI `Dialog` (W4-D5) and a real `Button` call
+  site exists.
+- **W4-D3 (5):** the whole axios section. `axios` and `axios-mock-adapter`
+  are not installed and nothing imports them; `src/shared/api.ts`'s
+  hand-rolled `fetch`-with-`AbortSignal` path is still the only transport,
+  which is the control group W4-D3-05 is meant to be contrasted against.
+- **W4-D4 (5):** the whole Redux Toolkit section. No store is mounted.
+  W4-D4-05 (Context retained for `QuoteContext`) cannot be claimed either —
+  that row is a *contrast*, and a contrast with nothing on the other side of
+  it is just the Week 2 row it already is.
+- **W4-D5 (4):** the whole react-hook-form + Zod section, and W4-D5-04, the
+  integrated /underwriting surface that depends on W4-D3 and W4-D4 landing
+  first. `ClaimIntakeWizard` still runs on `useActionState` and hand-rolled
+  per-step validation (C-06), which is the baseline W4-D5-01…03 replace.
+- **W3-D4-04 (1):** `useLayoutEffect`. Unchanged and still honestly unbuilt —
+  see [Known weak claims](#known-weak-claims).
+
+Two `[~]` rows are also still qualified and are not counted above, since both
+name code that exists: W4-D1-02 (four of six components) and W4-D2-04
+(`styled()` on one MUI surface, not more than one — `/underwriting` is the
+surface that will want a `StatusChip` for its own reasons).
 
 ---
 

@@ -45,6 +45,19 @@
  *   other time. Keystrokes in the /policies search box still do not reach it,
  *   which is what the render-count logs need to stay meaningful.
  *
+ *   WITHOUT THE useMemo ON THE CONTEXT VALUE — and this one is stated
+ *   honestly rather than dramatised, because today it breaks nothing. This
+ *   provider re-renders only when `choice` or `systemDark` moves, and both of
+ *   those already change the theme, so a fresh `{ choice, setChoice }` object
+ *   per render would be handed out at exactly the moments every consumer
+ *   re-renders anyway. The memo is load-bearing the moment this provider owns
+ *   a second piece of state that is *not* the theme — a drawer flag, a
+ *   reduced-motion preference — because then every `useThemeChoice()` caller
+ *   in the app, `AppShell` included, would re-render on a state change that
+ *   has nothing to do with them, and the cause would be invisible from the
+ *   consumer's side. It is here as the cheap guard against that, not as a fix
+ *   for a bug the current shape has.
+ *
  *   WITHOUT THE 'system' RESOLUTION: `data-theme` can only ever be 'light' or
  *   'dark' — CSS has no way to express "whatever the OS says" through an
  *   attribute — and `PaletteMode` has no third member either. Writing
