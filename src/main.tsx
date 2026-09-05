@@ -3,7 +3,7 @@
  *   The one and only entry point. Creates the React 19 root, installs the
  *   single `BrowserRouter`, and pulls in the global stylesheet.
  *
- * CONCEPTS: W2-D4-01
+ * CONCEPTS: W2-D4-01, W4-D1-01
  *
  * WITHOUT THIS:
  *   No router context exists, so the first `<Routes>`, `<NavLink>` or
@@ -27,12 +27,23 @@
  *   components will therefore appear twice in dev; the comparison between
  *   memoised and un-memoised components is what the logs are for, and doubling
  *   both sides leaves that comparison intact.
+ *
+ *   `ThemeModeProvider` (MUI `ThemeProvider` + `CssBaseline`) wraps the Router
+ *   rather than sitting inside it. Below the Router it would be inside a route
+ *   element, and the theme would reach only that route's subtree — every
+ *   `styled()` component outside it would silently fall back to MUI's default
+ *   theme, `theme.palette.status` would be `undefined` there, and `body` would
+ *   keep whatever background the last route left on it. It also wraps `App`
+ *   rather than being mounted inside it, so a navigation cannot unmount and
+ *   remount it: the theme object is created once per mode, not once per route
+ *   change.
  */
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { ThemeModeProvider } from './shared/theme/ThemeModeProvider';
 import './styles/global.css';
 
 const container = document.getElementById('root');
@@ -43,8 +54,10 @@ if (!container) {
 
 createRoot(container).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ThemeModeProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeModeProvider>
   </StrictMode>,
 );

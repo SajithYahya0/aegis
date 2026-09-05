@@ -21,11 +21,14 @@
  *
  *   `matchMedia` is absent from jsdom entirely — not stubbed, not partial,
  *   simply not implemented, because jsdom has no layout engine and therefore
- *   no media to match. Every test that mounts `AppLayout` renders the theme
- *   effect, which resolves the default 'system' choice against
- *   `prefers-color-scheme`, and without this shim all of them die on
- *   "window.matchMedia is not a function" — a failure in the layout's chrome
- *   that has nothing to do with what any of those tests assert.
+ *   no media to match. Every test that mounts `ThemeModeProvider` — which is
+ *   every test that mounts the app, since it sits above the router — resolves
+ *   the default 'system' choice against `prefers-color-scheme`, and without
+ *   this shim all of them die on "window.matchMedia is not a function" before
+ *   a single route renders: a failure in the app's chrome that has nothing to
+ *   do with what any of those tests assert. It is read during the provider's
+ *   first render, not only in an effect, so the shim has to exist before the
+ *   very first `render()`, which is why it is here rather than in a `beforeEach`.
  *
  *   The shim lives here rather than as a `typeof window.matchMedia ===
  *   'function'` guard in the component. A guard would put a branch in shipped

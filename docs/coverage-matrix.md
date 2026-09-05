@@ -106,7 +106,7 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W3-D2-05 | Custom hook — composition (hook using hooks) | R | `usePolicyFilters` = search params + debounce + memo | `src/shared/hooks/usePolicyFilters.ts` — `usePolicyFilters` | [x] |
 | W3-D2-06 | Testing a custom hook | R | `useDebounce.test.ts`, `useLocalStorage.test.ts` (fake timers) | `src/shared/hooks/useDebounce.test.ts`, `src/shared/hooks/useLocalStorage.test.ts` | [x] |
 | W3-D2-07 | Testing a component | R | `PolicyList.test.tsx` — filter narrows rows | `src/routes/policies/PolicyList.test.tsx` | [x] |
-| W3-D3-01 | `React.lazy` — route-level splitting | R | All top-level routes | `src/shared/routes/lazyRoutes.tsx` — `splitChunk` + the seven top-level route exports, consumed by `src/App.tsx`'s `BoundedRoute`; separate chunks confirmed in `vite build` output, and every route walked at runtime by `src/App.test.tsx` | [x] |
+| W3-D3-01 | `React.lazy` — route-level splitting | R | All top-level routes | `src/shared/routes/lazyRoutes.tsx` — `splitChunk` + the seven top-level route exports, consumed by `src/App.tsx`'s `BoundedRoute`; separate chunks confirmed in `vite build` output, and every route walked at runtime by `src/App.test.tsx`. Still true as written, but read it alongside [Honest gap: MUI's runtime is in the entry chunk](#honest-gap-muis-runtime-is-in-the-entry-chunk) — the mechanism is intact; the share of the bundle it defers is smaller since Week 4 Day 2 | [x] |
 | W3-D3-02 | `React.lazy` — component-level splitting | R | Claim intake wizard (heavy, modal-only) | `src/routes/ClaimIntakePage.tsx` — module-scope `splitChunk('ClaimIntakeWizard', () => import('./claimIntake/ClaimIntakeWizard'))`, rendered only inside an open `<Modal>`. The `import()` stays in this file (it is what draws the chunk boundary); only the memoise/log/reset mechanism is shared with the route chunks — which is how its Retry got fixed alongside theirs. Verified twice: its own chunk in `vite build`, and *not* loaded while the modal is closed by `src/App.test.tsx` | [x] |
 | W3-D3-03 | `<Suspense>` fallback | R | Per-route boundary | `src/App.tsx` — `LazyRoute` (one `<Suspense>` per route **and** per `/policies/:id` tab); also `src/routes/PolicyDetailPage.tsx`, `src/routes/policyDetail/RiskExposureWidget.tsx`, `src/routes/ClaimIntakePage.tsx` | [x] |
 | W3-D3-04 | Skeleton UI while chunk loads | R | `Skeleton.tsx` variants | `src/shared/components/Skeleton.tsx` — `Skeleton` (`table` / `card` / `panel`) | [x] |
@@ -129,15 +129,15 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 
 | ID | Concept | Tier | Feature that forces it | File / Export | Done |
 |---|---|---|---|---|---|
-| W4-D1-01 | `ThemeProvider` + `CssBaseline` mounted above the router | R | Theme and baseline reset must apply to every MUI route, so they mount above `BrowserRouter` in `main.tsx` |  | [ ] |
+| W4-D1-01 | `ThemeProvider` + `CssBaseline` mounted above the router | R | Theme and baseline reset must apply to every MUI route, so they mount above `BrowserRouter` in `main.tsx` | `src/shared/theme/ThemeModeProvider.tsx` — `ThemeModeProvider`, mounted in `src/main.tsx` **outside** `<BrowserRouter>`. Closed as a prerequisite of the W4-D2 rows rather than as part of that target list: `sx`, `styled()` and the custom `status` key are all reads off the theme context, so none of them can be demonstrated — or even rendered without throwing — until a provider exists. Measured, not assumed: a temporary probe dumped the `body` rule Emotion injects before and after a mode change (`background-color:#f4f5f7` → `#12151a`, `color:#16191d` → `#e6e9ee`), which is `CssBaseline` doing the repaint. The probe was deleted; the durable part of it is `src/shared/theme/ThemeModeProvider.test.tsx` | [x] |
 | W4-D1-02 | MUI core components (`AppBar`, `Card`, `Table`, `Dialog`, `Button`, `TextField`) | R | `/dashboard` KPI cards, `/underwriting` table, `ClaimIntakeWizard` dialog |  | [ ] |
 | W4-D1-03 | `Grid2` / `Box` / `Stack` layout | R | `/dashboard` KPI grid and `/underwriting` filter bar |  | [ ] |
 | W4-D1-04 | Responsive breakpoints via theme, not media queries | R | `/dashboard` grid collapsing to one column on narrow viewports |  | [ ] |
-| W4-D2-01 | `createTheme` palette incl. custom `status` key | R | Policy/claim status colours on MUI surfaces — the theme-level counterpart to `STATUS_CLASS` (W1-12) |  | [ ] |
-| W4-D2-02 | Typography + spacing overrides, `defaultProps`, `styleOverrides` | R | House style declared once in the theme instead of per-component |  | [ ] |
-| W4-D2-03 | Dark/light toggle persisted through `useLocalStorage` | R | AppBar theme toggle in `AppLayout`, surviving reload via the existing `useLocalStorage` (W1-07, C-08) |  | [ ] |
-| W4-D2-04 | `styled()` API | R | A reusable themed component used on more than one MUI surface |  | [ ] |
-| W4-D2-05 | `sx` prop | R | One-off spacing/alignment adjustments that do not earn a `styled()` component |  | [ ] |
+| W4-D2-01 | `createTheme` palette incl. custom `status` key | R | Policy/claim status colours on MUI surfaces — the theme-level counterpart to `STATUS_CLASS` (W1-12) | `src/shared/theme/theme.ts` — `createAegisTheme` (`palette.status`: four `{ main, soft }` pairs mirroring `--c-status-*` / `--c-status-*-soft` in `global.css`), typed — not `any` — by the `Palette`/`PaletteOptions` augmentation in `src/shared/theme/theme.d.ts`. Read by `StatusChip` on /dashboard; values pinned per mode in `ThemeModeProvider.test.tsx`. The augmentation file is named `mui-augment.d.ts` and not `theme.d.ts` for a reason recorded in its own header: a `.d.ts` beside a `.ts` of the same basename is dropped by TypeScript's wildcard matcher, so it was in the repo, looked correct, and was not in the program — the symptom being three errors in *other* files | [x] |
+| W4-D2-02 | Typography + spacing overrides, `defaultProps`, `styleOverrides` | R | House style declared once in the theme instead of per-component | `src/shared/theme/theme.ts` — `createAegisTheme`: `typography.h1`/`h2`/`body2` and `button` (`textTransform: 'none'`), `spacing: 8`, `components.MuiButton.defaultProps` (`disableElevation`), `components.MuiCard.styleOverrides.root` (6px, matching `.panel`). `typography.body1` is overridden too, and not for house style: `CssBaseline` spreads body1 onto `body` and its sheet lands after `global.css`, so MUI's default 1rem would have become the base font size for the *whole* app — CSS Modules routes included. Caught by the probe described on W4-D1-01, which showed `font-size:13px` in the emitted `body` rule | [x] |
+| W4-D2-03 | Dark/light toggle persisted through `useLocalStorage` | R | AppBar theme toggle in `AppLayout`, surviving reload via the existing `useLocalStorage` (W1-07, C-08) | `src/shared/theme/ThemeModeProvider.tsx` — `ThemeModeProvider` / `useThemeChoice`, driven by the Theme `<select>` in `src/shared/layout/AppLayout.tsx`; persisted under `aegis.theme` by `useLocalStorage`, resolved for `'system'` against `matchMedia`, and read pre-paint by the bootstrap script in `index.html`. Reload survival is pinned by `src/shared/theme/ThemeModeProvider.test.tsx` (a `cleanup()` then a fresh mount, so only `localStorage` crosses the boundary). **Qualified — the control is not the AppBar's.** The persistence, the `'system'` resolution and the MUI-mode wiring are real and observable; the toggle is still the CSS Modules `<select>` this app has had since Phase 1, because no MUI `AppBar` exists yet — that is W4-D1-02's build. Nothing here is faked by the substitute control, but the row names a component that is not there, and that is recorded rather than glossed | [~] |
+| W4-D2-04 | `styled()` API | R | A reusable themed component used on more than one MUI surface | `src/shared/theme/StatusChip.tsx` — `StatusChip` (`styled(Chip, { shouldForwardProp })` reading `theme.palette.status[status]`), rendered on /dashboard's book-by-status strip. The deliberate duplicate of `.statusActive`…`.statusCancelled` in `src/routes/policies/PolicyRow.module.css`, which stays; its header states what each of the two approaches costs. **Qualified — one MUI surface, not more than one.** /underwriting and `ClaimIntakeWizard` are the other two MUI surfaces `CLAUDE.md` names, and both are still pre-Week-4 placeholders, so there is exactly one surface to consume this today. Giving it a second consumer now would mean building a status list somewhere for the component's benefit rather than the app's | [~] |
+| W4-D2-05 | `sx` prop | R | One-off spacing/alignment adjustments that do not earn a `styled()` component | `src/routes/DashboardPage.tsx` — `DashboardPage` (`sx` on `Box`/`Stack`/`Typography` for the column gap, the redirect notice's padding and ground, and the status strip's `mt`/`rowGap`) — every one used once, on one page, with no variant axis. The contrast is the point and is argued in both headers: the badge on the same page is a `styled()` component because it is reused and varies by `PolicyStatus`, and `StatusChip.tsx` spells out why the reverse assignment fails in both directions | [x] |
 | W4-D3-01 | axios instance + `baseURL` | R | Single configured client for every Week 4 request |  | [ ] |
 | W4-D3-02 | Request interceptor — token attach | R | Auth token attached to every outgoing request without each call site knowing |  | [ ] |
 | W4-D3-03 | Response interceptor — logging + error normalisation | R | One error shape reaching the UI regardless of what the transport returned |  | [ ] |
@@ -198,7 +198,15 @@ directly (see the Week 2 section above).
 
 ## Known weak claims
 
-**Total rows: 83. Solid `[x]`: 77. Qualified `[~]`: 5. Not built `[ ]`: 1.**
+**Total rows: 106. Solid `[x]`: 81. Qualified `[~]`: 7. Not built `[ ]`: 18.**
+
+> Corrected in Week 4 Day 2: this line read "Total rows: 83 … Not built: 1"
+> until now, and both numbers had been wrong since the Week 4 section was
+> added — that commit appended 23 rows to the table and left every count in
+> the file describing the Week 1-3 app. The failure is the one this document
+> is supposed to be immune to: the totals said full coverage was one row away
+> while 24 rows had no code behind them. Counted by section: W1 14, W2 30,
+> W3 32, W4 23, completeness tier 13 — 106.
 
 The previous line here read "Complete: 83. Remaining: 0", and that number was
 defensible only against criteria that turned out to be too weak. A post-Phase-5
@@ -248,6 +256,8 @@ explicitly, and an honest `[ ]` is the side of it this repo takes.
 | C-07 | `useFormStatus` | Real in `ClaimIntakeWizard`. Unobservable in `PolicyClaimsTab`'s `ClaimForm`: `handleLogClaim` closes the modal before its `await`, unmounting the form before `pending` can render. | Keeping the modal open until the action settles — which would cover the optimistic row (C-05) that is the actual feedback. The two features are in real tension; the hook loses. |
 | W3-D4-04 | `useLayoutEffect` vs `useEffect` | **Not built.** The concept lost its home when the premium bar moved into normal flow: under `position: sticky` the measured offset was not just unobservable but actively wrong, so the measurement and both effect branches were deleted rather than kept as dead code. `useLayoutEffect` appears nowhere under `src/`. | A feature that genuinely must read a rendered dimension before paint — a tooltip or popover positioned against its anchor, a virtualised list measuring row heights. This app has none, and adding one to carry the row would be a component built for the matrix. Recorded as a gap instead. |
 | W2-D1-01 | Mount-only fetch (`[]` deps) | No `[]`-deps *fetch* exists. `useFetch`'s `[policyId]` effect runs once on mount, but that is an argument for not building the row, not a demonstration of it. | A feature that genuinely fetches once and never refetches. Adding one to `PolicyClaimsTab` would ship the stale-data bug `useFetch` exists to prevent. |
+| W4-D2-03 | Persisted theme toggle | The mechanism is fully observable — pick Dark, reload, it is still dark, and both the CSS Modules and MUI halves repaint together. What is missing is the *control the row names*: there is no MUI `AppBar`, so the toggle is still the header `<select>`. | W4-D1-02 building the AppBar and the switcher moving into it. No change to `ThemeModeProvider` is needed — only the control that calls `setChoice`. |
+| W4-D2-04 | `styled()` on more than one surface | `StatusChip` is real, themed, and rendered — but on /dashboard only. The row asks for reuse across MUI surfaces, and the other two (/underwriting, `ClaimIntakeWizard`) are still pre-Week-4 placeholders, so "reusable" is currently an assertion about the component rather than an observation about the app. | The /underwriting queue table (W4-D4-03) rendering policy status, which is a surface that wants the badge for its own reasons. Inventing a second consumer before then would be a component built for this file. |
 
 ### Repaired rather than downgraded
 
@@ -277,7 +287,7 @@ held its interval id in a ref where the effect's own closure already sufficed.
 
 ## Audit
 
-Total rows: **83**. Solid: **77**. Qualified: **5**. Not built: **1** (W3-D4-04 — see [Known weak claims](#known-weak-claims)).
+Total rows: **106**. Solid: **81**. Qualified: **7**. Not built: **18** (W3-D4-04 plus the 17 Week 4 rows still open — see [Still unchecked after Week 4 Day 2](#still-unchecked-after-week-4-day-2)).
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -433,6 +443,106 @@ their output was recorded.
 Final check before the review: open the app, click every route, and confirm each
 row's file is actually reached. A row whose code exists but is never rendered
 does not count.
+
+---
+
+## Still unchecked after Week 4 Day 2
+
+**17 Week 4 rows, plus W3-D4-04.** This pass closed six: W4-D2-01 through
+W4-D2-05 (its target list) plus W4-D1-01, which is not a bonus so much as a
+precondition — `sx`, `styled()` and `palette.status` are all reads off the
+theme context, and every one of them throws or silently falls back to MUI's
+default theme without a `ThemeProvider` above them. Two of the six are `[~]`
+and both are qualified for the same reason: the surfaces that would complete
+them are not built yet. See [Known weak claims](#known-weak-claims).
+
+- **W4-D1 (3 of 4):** W4-D1-02 (`AppBar`, `Card`, `Table`, `Dialog`,
+  `Button`, `TextField`), W4-D1-03 (`Grid2`/`Box`/`Stack` layout),
+  W4-D1-04 (theme breakpoints). /dashboard uses `Box`, `Stack` and
+  `Typography` today, and that is deliberately **not** claimed as W4-D1-03:
+  that row's named feature is the KPI grid and the /underwriting filter bar,
+  and neither exists — a `Box` used as a flex column is not the concept.
+  `MuiCard`'s `styleOverrides` is likewise declared in the theme (W4-D2-02)
+  with no `Card` yet rendering against it.
+- **W4-D3 (5):** the whole axios section. `axios` and `axios-mock-adapter`
+  are not installed and nothing imports them; `src/shared/api.ts`'s
+  hand-rolled `fetch`-with-`AbortSignal` path is still the only transport,
+  which is the control group W4-D3-05 is meant to be contrasted against.
+- **W4-D4 (5):** the whole Redux Toolkit section. No store is mounted.
+  W4-D4-05 (Context retained for `QuoteContext`) cannot be claimed either,
+  even though `/quote` genuinely does run on Context + `useReducer`: that
+  row is a *contrast*, and a contrast with nothing on the other side of it is
+  just the Week 2 row it already is.
+- **W4-D5 (4):** the whole react-hook-form + Zod section, and W4-D5-04, the
+  integrated /underwriting surface that depends on W4-D3 and W4-D4 landing
+  first. `ClaimIntakeWizard` still runs on `useActionState` and hand-rolled
+  per-step validation (C-06), which is the baseline W4-D5-01…03 replace.
+- **W3-D4-04 (1):** `useLayoutEffect`. Unchanged and still honestly unbuilt —
+  see [Known weak claims](#known-weak-claims).
+
+One thing this pass changed outside its own rows, recorded here because it
+reverses an argument another file makes at length: the theme choice, its
+`useLocalStorage` call and the `matchMedia` resolution **moved out of
+`AppLayout` into `ThemeModeProvider`**. `AppLayout`'s header used to argue
+that a theme context would be wrong because nothing below read the value. That
+was true of a CSS-only app and is false now — MUI reads it — and `ThemeProvider`
+has to sit above the router, which is above `AppLayout`. Keeping a copy in both
+places would not have been a second opinion but a second `useState`: two
+`useLocalStorage('aegis.theme')` calls share a key, not state, so the toggle
+would have flipped the CSS Modules routes and left every MUI surface on its
+mount-time value until a reload. Both headers now carry the reversal rather
+than the original claim.
+
+A second, smaller thing worth having in writing: the MUI module augmentation is
+called `mui-augment.d.ts`, not `theme.d.ts`. TypeScript's wildcard matcher drops
+a `.d.ts` when a `.ts` of the same basename exists — it assumes the former is
+the latter's emitted output — so the augmentation was in the repo, looked
+correct, and was not in the program at all. It failed loudly here (three `tsc`
+errors, all in other files), but the same mistake in a file whose only job is
+widening an interface would fail silently. An explicit `files` entry in
+`tsconfig.json` also fixes it and was tried first; the rename is preferred
+because it leaves no hand-maintained list to keep in sync with a rule about
+filenames.
+
+### Honest gap: MUI's runtime is in the entry chunk
+
+Measured across a `vite build` before and after this pass — same machine, same
+config, sizes as reported by Vite:
+
+| Chunk | Before | After |
+|---|---|---|
+| entry `index-*.js` | 272.06 kB (87.59 kB gzip) | 359.24 kB (118.22 kB gzip) |
+| `DashboardPage` | 0.46 kB | 36.01 kB |
+| `PoliciesPage` | 12.06 kB | 12.05 kB |
+| `QuoteWizardPage` | 6.68 kB | 6.68 kB |
+| `ClaimIntakeWizard` | 6.40 kB | 6.38 kB |
+| `PolicyDetailPage` | 5.32 kB | 5.32 kB |
+
+`ThemeModeProvider` is a static import in `main.tsx`, so `@mui/material`'s
+styling engine, `CssBaseline` and Emotion are all reachable from the entry and
+cannot be lazily chunked. That is not an oversight to be tidied away by
+`React.lazy`-ing the provider: the theme has to exist before the first route
+renders, or the first paint of every MUI surface is either unthemed or a
+suspended fallback. It is the same shape as the `src/shared/data` finding
+already recorded in `lazyRoutes.tsx`'s header — a module reachable from
+statically-imported chrome cannot be split — with a much larger module.
+
+**This blunts the W3-D3 code-splitting claim, and that row should be read with
+this section next to it.** Route-level splitting still does exactly what
+W3-D3-01 says: seven route chunks, resolved on navigation, walked at runtime by
+`App.test.tsx`. What changed is the *share of the bundle* it governs. Before
+this pass the entry was 272 kB and the largest route chunk 12 kB, so splitting
+deferred a real fraction of the app; now a first-time visitor downloads 359 kB
+before any route renders, and splitting defers proportionally less of it.
+
+One thing the table does **not** show, contrary to the way this change is easy
+to describe: **the marginal per-route cost did not drop.** The six CSS Modules
+route chunks are unchanged to within 0.02 kB, and the one MUI route went from
+0.46 kB to 36.01 kB. What the shared entry actually buys is that the *engine* is
+paid once — the second and third MUI surfaces (W4-D1-02's AppBar, the
+/underwriting queue) will each add only their own components, not another copy
+of Emotion. That is a real benefit, it is a different one, and it is unmeasured
+here because those surfaces do not exist yet.
 
 ---
 

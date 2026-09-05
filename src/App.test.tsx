@@ -61,6 +61,7 @@ import { render, screen, type ByRoleOptions } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import App from './App';
+import { ThemeModeProvider } from './shared/theme/ThemeModeProvider';
 
 /**
  * Budget for one lazy chunk to transform, import, and render. See the header —
@@ -68,11 +69,23 @@ import App from './App';
  */
 const CHUNK_TIMEOUT_MS = 10_000;
 
+/**
+ * The provider stack mirrors `main.tsx`: `ThemeModeProvider` outside the
+ * router, exactly where the real app mounts it. It is not scaffolding to keep
+ * the suite quiet — a MUI surface rendered with no `ThemeProvider` above it
+ * falls back to MUI's *default* theme, which has no custom `status` key, so
+ * `StatusChip` on /dashboard reads `theme.palette.status[status].soft` off
+ * `undefined` and throws. Nesting it inside `MemoryRouter` instead would still
+ * pass here and still be wrong: it is the position above the router that keeps
+ * the theme alive across navigations and reaches portalled content.
+ */
 function renderAt(path: string): void {
   render(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-    </MemoryRouter>,
+    <ThemeModeProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>
+    </ThemeModeProvider>,
   );
 }
 

@@ -33,6 +33,22 @@
  *   header. A single boundary at this level would let one dead vendor feed
  *   blank the whole policy.
  *
+ *   No `PolicyDetailPage.module.css`: `tabClassName` returned the bare string
+ *   `'active'`, and no `.active` rule has ever existed in this app — not in
+ *   `global.css`, not in any module. So the three tabs rendered as three
+ *   run-together default links: no padding, no rule underneath, no active
+ *   state, and nothing to tell the user which tab they are on except the URL.
+ *   This is the exact failure `PolicyRow.tsx`'s header warns about one route
+ *   over ("a plain `className` string is invisible to CSS Modules' scoping —
+ *   it either collides with an unrelated global class of the same name or
+ *   resolves to nothing"), and it sat here unnoticed from Phase 1 because a
+ *   class that resolves to nothing throws nothing, logs nothing and fails no
+ *   test. It is worth being precise about what went wrong: not a missing
+ *   stylesheet that someone forgot to write, but a *string literal in a
+ *   position that looks like it works*. `styles.tabActive` is `undefined` if
+ *   the class is ever renamed, and `undefined` is at least visible in the DOM;
+ *   `'active'` looks correct forever.
+ *
  *   `key={policyId}` on the summary card's boundary: navigating from POL-1 to
  *   POL-2 while POL-1's boundary is showing an error would otherwise reconcile
  *   the two — same element type, same position — and the boundary would still
@@ -50,9 +66,10 @@ import { policiesById } from '../shared/data';
 import { PolicySummaryCard } from './policyDetail/PolicySummaryCard';
 import { RenewalCountdown } from './policyDetail/RenewalCountdown';
 import { RiskExposurePanel } from './policyDetail/RiskExposureWidget';
+import styles from './PolicyDetailPage.module.css';
 
 function tabClassName({ isActive }: { isActive: boolean }): string {
-  return isActive ? 'active' : '';
+  return isActive ? styles.tabActive : styles.tab;
 }
 
 export default function PolicyDetailPage(): ReactElement {
@@ -78,13 +95,19 @@ export default function PolicyDetailPage(): ReactElement {
 
       <RiskExposurePanel key={`risk-${policyId}`} policyId={policyId} />
 
-      <nav>
+      {/*
+        The `{' '}` separators that used to sit between these links are gone:
+        they were the only thing keeping the three words apart, and a literal
+        space between flex children becomes an anonymous flex item rather than
+        a gap. `gap: var(--s-1)` on `.tabs` is the real spacing now.
+      */}
+      <nav className={styles.tabs} aria-label="Policy sections">
         <NavLink to="." end className={tabClassName}>
           Coverage
-        </NavLink>{' '}
+        </NavLink>
         <NavLink to="claims" className={tabClassName}>
           Claims
-        </NavLink>{' '}
+        </NavLink>
         <NavLink to="documents" className={tabClassName}>
           Documents
         </NavLink>

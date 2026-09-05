@@ -36,50 +36,49 @@
  *   safe on two handlers that routinely both fire for the same link — focus
  *   follows click, so a mouse user usually triggers both within a few frames.
  *
- *   THEME. The layout owns the theme choice because it is the only component
- *   that mounts once and outlives every route, so the effect that writes
- *   `data-theme` runs on a real change of intent rather than on every
- *   navigation. It is deliberately NOT a context: nothing below reads the
- *   value — the tokens in `global.css` do all the work off one attribute on
- *   `<html>` — so a provider would broadcast a re-render to the entire tree to
- *   deliver a value with no consumers, and would defeat the memoisation the
- *   render-count logs exist to demonstrate.
+ *   THEME — AND WHY THIS FILE NO LONGER OWNS IT. The theme choice, its
+ *   `useLocalStorage` call, the `'system'` resolution and the `matchMedia`
+ *   listener all used to live here, and this header used to argue at length
+ *   that a theme context would be wrong: nothing below read the value, the
+ *   tokens in `global.css` did all the work off one attribute on `<html>`, so
+ *   a provider would broadcast a re-render to the whole tree to deliver a
+ *   value with no consumers. That argument was correct while the app was
+ *   CSS-only. Week 4 falsified its premise — MUI resolves colour from a theme
+ *   *object* in React context at render time, and `ThemeProvider` has to sit
+ *   above the router (see `main.tsx`), which is above this component.
  *
- *   This is `useLocalStorage`'s second consumer (the first is the
- *   recently-viewed list on /policies). Nothing about the hook changes; it is
- *   worth stating only because a hook with a single caller is
- *   indistinguishable from a function that should have been inlined, and two
- *   callers holding unrelated value types — a list of policy ids there, a
- *   `ThemeChoice` union here — are what make its generic parameter
- *   load-bearing rather than decorative.
+ *   Keeping the state here as well would not have been a second opinion, it
+ *   would have been a second *copy*: two `useLocalStorage('aegis.theme')`
+ *   calls share a key, not state, so each holds its own `useState` and a
+ *   click on the switcher below would move one and leave the other on its
+ *   mount-time value. The visible failure is the CSS Modules routes flipping
+ *   to dark while every MUI surface stays light until a reload.
  *
- *   WITHOUT THE 'system' RESOLUTION: `data-theme` can only ever be 'light' or
- *   'dark', because CSS has no way to express "whatever the OS says" through
- *   an attribute. Writing `data-theme="system"` would match no selector at
- *   all and fall through to the light `:root` tokens — so a dark-OS user on
- *   the default setting would silently get a white app. 'system' is therefore
- *   resolved here against `matchMedia` and written out as a concrete theme.
+ *   So the state moved up to `ThemeModeProvider` and this file reads it
+ *   through `useThemeChoice()`. The old objection survives only in its narrow
+ *   form and is handled there: the context value is memoised on the choice, so
+ *   it changes on a theme change and at no other time — a keystroke in the
+ *   /policies search box still does not reach it, which is what keeps the
+ *   render-count logs meaningful.
  *
- *   WITHOUT THE matchMedia LISTENER: the OS preference is read once at mount
- *   and never again. A user on System whose machine flips to dark at sunset —
- *   or who toggles it in Settings with this tab open — keeps the light palette
- *   until they reload, which reads as the System option being broken. The
- *   listener is removed in the effect's cleanup because it is registered on a
- *   `MediaQueryList` that lives as long as the window: a leaked handler
- *   outlives unmount and goes on writing `data-theme` on behalf of a
- *   component that no longer exists. StrictMode's double-mount is what makes
- *   that leak observable in dev instead of in production.
+ *   `useLocalStorage` still has two consumers, just not two here: the
+ *   recently-viewed list on /policies and the theme choice one level up. That
+ *   is worth stating because a hook with a single caller is indistinguishable
+ *   from a function that should have been inlined, and two callers holding
+ *   unrelated value types — a list of policy ids there, a `ThemeChoice` union
+ *   there — are what make its generic parameter load-bearing rather than
+ *   decorative.
  */
 
-import { useEffect, type ReactElement } from 'react';
+import { type ReactElement } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { ConnectivityBanner } from '../components/ConnectivityBanner';
 import { AS_OF } from '../data';
 import { formatDate } from '../format';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 // import { LabPanel } from '../labs';
 import { preloadPath } from '../routes/lazyRoutes';
 import { useAuth } from '../store/AuthContext';
+import { useThemeChoice, type ThemeChoice } from '../theme/ThemeModeProvider';
 import type { Role } from '../types';
 import styles from './AppLayout.module.css';
 
@@ -93,24 +92,11 @@ const NAV_ITEMS: readonly { to: string; label: string; end?: boolean }[] = [
 
 const ROLES: readonly Role[] = ['agent', 'underwriter'];
 
-/*
- * What the user picks — not what gets painted. 'system' is a choice, not a
- * resolved theme: it is the third state meaning "keep following the OS", which
- * is why it has to survive a reload as itself. Persisting the resolved 'dark'
- * instead would pin the user to dark permanently the first time their OS
- * happened to be dark, and the System option would become a one-way door.
- */
-type ThemeChoice = 'light' | 'dark' | 'system';
-
-const THEME_KEY = 'aegis.theme';
-
 const THEME_OPTIONS: readonly { value: ThemeChoice; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'System' },
 ];
-
-const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 function navLinkClassName({ isActive }: { isActive: boolean }): string {
   return isActive ? styles.navLinkActive : styles.navLink;
@@ -118,45 +104,7 @@ function navLinkClassName({ isActive }: { isActive: boolean }): string {
 
 export function AppLayout(): ReactElement {
   const { user, role, switchRole } = useAuth();
-  const [theme, setTheme] = useLocalStorage<ThemeChoice>(THEME_KEY, 'system');
-
-  useEffect(() => {
-    const root = document.documentElement;
-
-    /*
-     * Hand colour back to the stylesheet. The bootstrap script in `index.html`
-     * sets `color-scheme` as an inline style so the browser has a dark canvas
-     * before any CSS exists; an inline style outranks a stylesheet, so leaving
-     * it there would mean a user who later picks Light keeps dark scrollbars
-     * and a dark native date picker for the rest of the session. React is
-     * running by the time this fires, so the tokens are loaded and the
-     * `[data-theme]` block can take over.
-     */
-    root.style.removeProperty('color-scheme');
-
-    /*
-     * An explicit choice needs no subscription: 'light' and 'dark' are already
-     * concrete. Listening for OS changes here as well would let the OS repaint
-     * an app the user has deliberately pinned.
-     */
-    if (theme !== 'system') {
-      root.dataset.theme = theme;
-      return;
-    }
-
-    const query = window.matchMedia(DARK_QUERY);
-
-    const apply = (matches: boolean): void => {
-      root.dataset.theme = matches ? 'dark' : 'light';
-    };
-
-    apply(query.matches);
-
-    const onChange = (event: MediaQueryListEvent): void => apply(event.matches);
-
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, [theme]);
+  const { choice, setChoice } = useThemeChoice();
 
   return (
     <div className={styles.shell}>
@@ -201,8 +149,8 @@ export function AppLayout(): ReactElement {
           <label htmlFor="theme-switcher">Theme</label>
           <select
             id="theme-switcher"
-            value={theme}
-            onChange={(event) => setTheme(event.target.value as ThemeChoice)}
+            value={choice}
+            onChange={(event) => setChoice(event.target.value as ThemeChoice)}
           >
             {THEME_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>

@@ -1,0 +1,46 @@
+/*
+ * The Coverage / Claims / Documents tab bar. Deliberately the same shape as
+ * `PolicyBookTabs.module.css` on /policies — same 2px underline, same muted
+ * ink lifting to accent when active — because they are the same affordance and
+ * a user who learns one should not have to learn the other.
+ *
+ * It is NOT a copy of that file, and the difference is the point: those tabs
+ * are `<button>`s switching client-side view state, so they need `background:
+ * none; border: none` to stop looking like buttons. These are `<NavLink>`s
+ * pointing at real nested routes, so they need the opposite treatment — a link
+ * reset rather than a button reset.
+ */
+
+.tabs {
+  display: flex;
+  gap: var(--s-1);
+  align-items: center;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: var(--s-3);
+}
+
+.tab {
+  border-bottom: 2px solid transparent;
+  padding: var(--s-2) var(--s-3);
+  color: var(--c-text-muted);
+  font-weight: 600;
+}
+
+/*
+ * `global.css` sets `a:hover { text-decoration: underline }` for prose links,
+ * and that is the right default everywhere except here: a tab already has a
+ * 2px rule under it, so the hover underline lands a few pixels above the
+ * border and the two read as a doubled, slightly crooked line. Overriding the
+ * decoration is the whole reason the hover rule exists — the colour lift alone
+ * would not have needed its own block.
+ */
+.tab:hover {
+  color: var(--c-text);
+  text-decoration: none;
+}
+
+.tabActive {
+  composes: tab;
+  color: var(--c-accent);
+  border-bottom-color: var(--c-accent);
+}
