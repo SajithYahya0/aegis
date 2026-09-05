@@ -1,6 +1,6 @@
 # AEGIS — Concept Coverage Matrix
 
-Every row is a concept drawn from the Week 1–3 reference material, plus a
+Every row is a concept drawn from the Week 1–4 reference material, plus a
 "completeness" tier for hooks the reference implies but does not name. A row is
 complete when the **File / Export** column names real running code and `Done` is
 `[x]`.
@@ -122,6 +122,36 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W3-D5-03 | `use()` with Context (conditional read) | R | Theme/role read inside a branch | `src/routes/policyDetail/PolicySummaryCard.tsx` — `use(AuthContext)` inside the `lapsed`/`cancelled` branch, so an active policy never subscribes to auth at all. `AuthContext` is exported from `src/shared/store/AuthContext.tsx` specifically for this | [x] |
 | W3-D5-04 | Suspense + ErrorBoundary together | R | Rejected promise caught by boundary | `src/routes/policyDetail/RiskExposureWidget.tsx` — `RiskExposurePanel` (ErrorBoundary → Suspense → `use()` on a promise that is pending then rejected); same pairing in `src/App.tsx`'s `LazyRoute` and `src/routes/PolicyDetailPage.tsx` | [x] |
 | W3-D5-05 | Refactor prior routes to lazy-load | R | Whole route table | `src/App.tsx` — `App`; all seven top-level routes **and** the three `/policies/:id` tabs are lazy. Walked at runtime by `src/App.test.tsx` | [x] |
+
+---
+
+## Week 4 — UI Libraries, Theming & API Integration
+
+| ID | Concept | Tier | Feature that forces it | File / Export | Done |
+|---|---|---|---|---|---|
+| W4-D1-01 | `ThemeProvider` + `CssBaseline` mounted above the router | R | Theme and baseline reset must apply to every MUI route, so they mount above `BrowserRouter` in `main.tsx` |  | [ ] |
+| W4-D1-02 | MUI core components (`AppBar`, `Card`, `Table`, `Dialog`, `Button`, `TextField`) | R | `/dashboard` KPI cards, `/underwriting` table, `ClaimIntakeWizard` dialog |  | [ ] |
+| W4-D1-03 | `Grid2` / `Box` / `Stack` layout | R | `/dashboard` KPI grid and `/underwriting` filter bar |  | [ ] |
+| W4-D1-04 | Responsive breakpoints via theme, not media queries | R | `/dashboard` grid collapsing to one column on narrow viewports |  | [ ] |
+| W4-D2-01 | `createTheme` palette incl. custom `status` key | R | Policy/claim status colours on MUI surfaces — the theme-level counterpart to `STATUS_CLASS` (W1-12) |  | [ ] |
+| W4-D2-02 | Typography + spacing overrides, `defaultProps`, `styleOverrides` | R | House style declared once in the theme instead of per-component |  | [ ] |
+| W4-D2-03 | Dark/light toggle persisted through `useLocalStorage` | R | AppBar theme toggle in `AppLayout`, surviving reload via the existing `useLocalStorage` (W1-07, C-08) |  | [ ] |
+| W4-D2-04 | `styled()` API | R | A reusable themed component used on more than one MUI surface |  | [ ] |
+| W4-D2-05 | `sx` prop | R | One-off spacing/alignment adjustments that do not earn a `styled()` component |  | [ ] |
+| W4-D3-01 | axios instance + `baseURL` | R | Single configured client for every Week 4 request |  | [ ] |
+| W4-D3-02 | Request interceptor — token attach | R | Auth token attached to every outgoing request without each call site knowing |  | [ ] |
+| W4-D3-03 | Response interceptor — logging + error normalisation | R | One error shape reaching the UI regardless of what the transport returned |  | [ ] |
+| W4-D3-04 | 401 refresh with single-flight queue and retry guard | R | Concurrent `/underwriting` requests hitting an expired token must refresh once, not N times, and must not retry forever |  | [ ] |
+| W4-D3-05 | Cancellation — `AbortSignal` through axios | R | Navigating away from `/underwriting` mid-request — the axios counterpart to the hand-rolled `AbortSignal` path in `src/shared/api.ts` |  | [ ] |
+| W4-D4-01 | `configureStore` + typed hooks | R | Store mounted for the Week 4 surfaces, with typed `useAppDispatch` / `useAppSelector` |  | [ ] |
+| W4-D4-02 | `createSlice` with Immer | R | Underwriting queue state written as mutation, applied immutably |  | [ ] |
+| W4-D4-03 | `createAsyncThunk` + `extraReducers` lifecycle | R | `/underwriting` load showing pending / fulfilled / rejected from one thunk |  | [ ] |
+| W4-D4-04 | `createSelector` memoised derivation | R | Derived underwriting totals recomputed only when their inputs change |  | [ ] |
+| W4-D4-05 | Context retained for `QuoteContext` — the deliberate contrast | C | `/quote` stays on Context + `useReducer` while `/underwriting` runs on Redux Toolkit, so the two can be compared side by side (see the Week 4 boundary section in `CLAUDE.md`) |  | [ ] |
+| W4-D5-01 | `useForm` + `register` + `Controller` | R | `ClaimIntakeWizard` fields — `register` for plain inputs, `Controller` for MUI controlled components |  | [ ] |
+| W4-D5-02 | Zod schema + `zodResolver` + `z.infer` as the single source of type | R | Claim intake validation, with the form's TypeScript type derived from the schema rather than declared twice |  | [ ] |
+| W4-D5-03 | `formState` — `errors`, `isSubmitting`, `isDirty`, per-step `trigger()` | R | Wizard step gating — a step cannot be left until its own fields validate |  | [ ] |
+| W4-D5-04 | Integrated authenticated dashboard (`/underwriting`) | R | The route that puts theming, axios, Redux Toolkit and the form stack together in one authenticated surface |  | [ ] |
 
 ---
 

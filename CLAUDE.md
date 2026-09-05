@@ -1,7 +1,7 @@
 # AEGIS — Policy & Claims Console
 
 A React 19 demo application built to demonstrate **complete coverage** of a fixed
-React curriculum (Weeks 1–3). This is a competency-demonstration artifact, not a
+React curriculum (Weeks 1–4). This is a competency-demonstration artifact, not a
 product. Read `docs/coverage-matrix.md` before writing any code.
 
 ---
@@ -38,12 +38,48 @@ still unchecked.
 | @testing-library/react    | 16.3.0  |
 | @testing-library/jest-dom | 6.6.3   |
 
-Do not add state libraries (Redux, Zustand, Jotai), data libraries (TanStack
-Query, SWR), UI kits (MUI, Chakra, shadcn), or CSS frameworks (Tailwind). The
-point of the exercise is to implement these mechanisms by hand. Styling is
-**CSS Modules only** — that is itself a curriculum item.
+Weeks 1–3 surfaces are CSS Modules + hand-rolled state, and STAY that way. They
+are the control group: they exist to be contrasted against the Week 4 surfaces.
+Do not migrate them.
+
+Week 4 adds, and only on the surfaces named in `docs/coverage-matrix.md`:
+
+- `@mui/material`, `@emotion/react`, `@emotion/styled`, `@mui/icons-material`
+- `axios`, `axios-mock-adapter`
+- `@reduxjs/toolkit`, `react-redux`
+- `react-hook-form`, `zod`, `@hookform/resolvers`
+
+Nothing else. No TanStack Query, no Tailwind, no component library beyond MUI.
 
 `date-fns` is permitted for date arithmetic. Nothing else without asking.
+
+---
+
+## Week 4 boundary
+
+The split below is deliberate and load-bearing. Weeks 1–3 are the control group:
+hand-rolled reducers, hand-rolled fetch-with-`AbortSignal`, hand-rolled form
+state, CSS Modules. Week 4 re-solves the *same* problems with libraries. Keeping
+both alive is what makes the comparison demonstrable — "here is the `useReducer`
+version, here is the Redux Toolkit version, and here is why each is the way it
+is." Migrating the Week 1–3 surfaces would delete the evidence and leave only
+the libraries, which is the one outcome this exercise is built to avoid.
+
+| Surface                              | Styling / state    |
+| ------------------------------------ | ------------------ |
+| `/dashboard`                         | MUI (new)          |
+| `/underwriting`                      | MUI (new)          |
+| AppBar + theme toggle in `AppLayout` | MUI (new)          |
+| `ClaimIntakeWizard`                  | MUI (new)          |
+| `/policies`                          | CSS Modules (kept) |
+| `/policies/:id`                      | CSS Modules (kept) |
+| `/quote`                             | CSS Modules (kept) |
+
+To be explicit: a mixed-styling app here is **finished**, not half-migrated. If
+a reviewer asks why `/policies` is not MUI, the answer is that it is the
+baseline the MUI routes are measured against. Do not "tidy" this up. Do not
+introduce MUI components into a CSS Modules surface, and do not introduce CSS
+Modules into a MUI surface — the boundary is the artifact.
 
 ---
 
