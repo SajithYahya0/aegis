@@ -1,9 +1,10 @@
 /**
  * WHY THIS EXISTS:
- *   The route table's layout element. It owns exactly two things: the
- *   `<Outlet>` every child route renders into, and the app-wide connectivity
- *   banner that has to sit above it. The chrome around both — app bar, nav
- *   drawer, role and theme controls — is `AppShell`.
+ *   The route table's layout element. It owns exactly three things: the
+ *   `<Outlet>` every child route renders into, the app-wide connectivity
+ *   banner that has to sit above it, and the dev-only `LabPanel` below it.
+ *   The chrome around all three — app bar, nav drawer, role and theme
+ *   controls — is `AppShell`.
  *
  * CONCEPTS: W2-D4-04, C-04
  *
@@ -31,13 +32,31 @@
  *
  *   It sits INSIDE `AppShell`'s content region rather than in the chrome
  *   deliberately: it is a CSS Modules component, and the content region is the
- *   side of the boundary CSS Modules is allowed on.
+ *   side of the boundary CSS Modules is allowed on. `LabPanel` is here for the
+ *   same two reasons — it is a CSS Modules component, and it has to be on
+ *   every route.
+ *
+ *   WITHOUT THE LabPanel MOUNT: every registered defect in
+ *   `src/shared/labs/registry.ts` becomes unreachable at once. The toggles
+ *   still exist, `isLabEnabled` still answers, and nothing anywhere throws —
+ *   the defects simply can never be switched on, so six demos
+ *   (W2-D1-05, W2-D1-06, W2-D3-02, W3-D2-01, W3-D4-03, W4-D3-04 and C-05)
+ *   silently become claims in prose. This mount was commented out in
+ *   `fa744c4` with no note and stayed that way through the `AppShell`
+ *   rebuild, while `README.md`, `docs/failure-modes.md`, `docs/qa-drills.md`
+ *   and two rows of `docs/coverage-matrix.md` went on describing a panel that
+ *   was not in the tree. That is the failure mode worth naming here: a
+ *   commented-out mount point compiles, tests green, and takes a whole
+ *   category of demonstrable evidence with it. `import.meta.env.DEV` is the
+ *   gate — it keeps the panel out of a production bundle without ever
+ *   removing it from the source, which is what makes commenting it out
+ *   unnecessary in the first place.
  */
 
 import { type ReactElement } from 'react';
 import { Outlet } from 'react-router-dom';
 import { ConnectivityBanner } from '../components/ConnectivityBanner';
-// import { LabPanel } from '../labs';
+import { LabPanel } from '../labs';
 import { AppShell } from './AppShell';
 
 export function AppLayout(): ReactElement {
@@ -45,7 +64,7 @@ export function AppLayout(): ReactElement {
     <AppShell>
       <ConnectivityBanner />
       <Outlet />
-      {/* {import.meta.env.DEV ? <LabPanel /> : null} */}
+      {import.meta.env.DEV ? <LabPanel /> : null}
     </AppShell>
   );
 }
