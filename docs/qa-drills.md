@@ -487,7 +487,7 @@ store earns its dependency. Not before.
 </details>
 
 <details>
-<summary><b>4.5</b> — <code>QuoteProvider</code> is deliberately placed <em>outside</em> the route's <code>&lt;Suspense&gt;</code>. What breaks if it goes inside, and how would you notice?</summary>
+<summary><b>4.5</b> — <code>QuoteProvider</code> is mounted in <code>main.tsx</code>, above the Router — not on the <code>/quote</code> route at all. What breaks if you move it down inside that route's <code>&lt;Suspense&gt;</code>, and how would you notice?</summary>
 
 `initQuoteDraft` re-runs and the in-progress draft is silently replaced by
 whatever was last persisted.
@@ -507,6 +507,16 @@ symptom, and the cause is three files away in the route table.
 This is the general rule the file states: anything whose *identity across
 suspensions* matters goes outside the boundary. State goes outside; the thing
 that suspends goes inside.
+
+The follow-up to expect, since the provider is no longer on the route: it used to
+wrap the `/quote` route element in `App.tsx`, which already satisfied that rule —
+it was outside the boundary, one level up. It moved to `main.tsx` in the Redux
+phase for a second reason rather than a corrected one. The session now lives in a
+`<Provider store>` and the wizard draft still lives in Context + `useReducer`, and
+mounting them as siblings eight lines apart is what makes W4-D4-05's claim — that
+this app deliberately runs both approaches at once — something a reader can check
+instead of take on trust. It sits *below* `BrowserRouter` because the wizard's
+`RESET` navigates, and a provider above the Router cannot use a router hook.
 </details>
 
 ---
