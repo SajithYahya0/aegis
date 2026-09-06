@@ -138,11 +138,11 @@ contrived usage, which `CLAUDE.md` ranks as strictly worse.
 | W4-D2-03 | Dark/light toggle persisted through `useLocalStorage` | R | AppBar theme toggle in `AppLayout`, surviving reload via the existing `useLocalStorage` (W1-07, C-08) | `src/shared/theme/ThemeModeProvider.tsx` — `ThemeModeProvider` / `useThemeChoice`, driven by the Theme `<select>` in `src/shared/layout/AppLayout.tsx`; persisted under `aegis.theme` by `useLocalStorage`, resolved for `'system'` against `matchMedia`, and read pre-paint by the bootstrap script in `index.html`. Reload survival is pinned by `src/shared/theme/ThemeModeProvider.test.tsx` (a `cleanup()` then a fresh mount, so only `localStorage` crosses the boundary). **Repaired this pass — the control is now the AppBar's.** The `<select>` this row was qualified on is gone with the CSS Modules header; the toggle is the `IconButton` in `src/shared/layout/AppShell.tsx`, calling the same `setChoice`. It cycles Light → Dark → System rather than toggling two states, because `'system'` is the only choice that keeps the `matchMedia` subscription alive — a two-state button would make the first click a one-way door out of "follow my OS" | [x] |
 | W4-D2-04 | `styled()` API | R | A reusable themed component used on more than one MUI surface | `src/shared/theme/StatusChip.tsx` — `StatusChip` (`styled(Chip, { shouldForwardProp })` reading `theme.palette.status[status]`), rendered on /dashboard's book-by-status strip. The deliberate duplicate of `.statusActive`…`.statusCancelled` in `src/routes/policies/PolicyRow.module.css`, which stays; its header states what each of the two approaches costs. **Qualified — one MUI surface, not more than one.** /underwriting and `ClaimIntakeWizard` are the other two MUI surfaces `CLAUDE.md` names, and both are still pre-Week-4 placeholders, so there is exactly one surface to consume this today. Giving it a second consumer now would mean building a status list somewhere for the component's benefit rather than the app's | [~] |
 | W4-D2-05 | `sx` prop | R | One-off spacing/alignment adjustments that do not earn a `styled()` component | `src/routes/DashboardPage.tsx` — `DashboardPage` (`sx` on `Box`/`Stack`/`Typography`/`Card`/`TableCell` for the page column gap, the redirect notice's padding and ground, the equal-height cards, the claims proportion bars and the per-breakpoint column hiding) and `src/shared/layout/AppShell.tsx` (the app bar's `zIndex` callback and border, the drawer paper width, the nav item's `&.active` state) — every one used once, in one place, with no variant axis. The contrast is the point and is argued in both headers: the badge on the same page is a `styled()` component because it is reused and varies by `PolicyStatus`, and `StatusChip.tsx` spells out why the reverse assignment fails in both directions | [x] |
-| W4-D3-01 | axios instance + `baseURL` | R | Single configured client for every Week 4 request |  | [ ] |
-| W4-D3-02 | Request interceptor — token attach | R | Auth token attached to every outgoing request without each call site knowing |  | [ ] |
-| W4-D3-03 | Response interceptor — logging + error normalisation | R | One error shape reaching the UI regardless of what the transport returned |  | [ ] |
-| W4-D3-04 | 401 refresh with single-flight queue and retry guard | R | Concurrent `/underwriting` requests hitting an expired token must refresh once, not N times, and must not retry forever |  | [ ] |
-| W4-D3-05 | Cancellation — `AbortSignal` through axios | R | Navigating away from `/underwriting` mid-request — the axios counterpart to the hand-rolled `AbortSignal` path in `src/shared/api.ts` |  | [ ] |
+| W4-D3-01 | axios instance + `baseURL` | R | Single configured client for every Week 4 request | `src/shared/http/client.ts` — `http` (`axios.create({ baseURL: '/api', timeout: 8000 })`), wired in `src/shared/http/index.ts`, which is the composition root: it attaches `installMockBackend` and `installInterceptors` to the instance at module load, before any component can fire the first request. The backend is `axios-mock-adapter` bound to that instance and answering from `src/shared/data` — mocked at the *adapter*, not at the endpoint functions, so every request is dispatched by axios for real and every interceptor genuinely executes. Consumed from a clickable route by `src/routes/policyDetail/PolicyClaimsTab.tsx` via `src/shared/http/endpoints.ts`. `src/shared/api.ts` is untouched and still serves every other surface — it is the control group this stack is measured against | [x] |
+| W4-D3-02 | Request interceptor — token attach | R | Auth token attached to every outgoing request without each call site knowing | `src/shared/http/interceptors.ts` — `installInterceptors`, interceptor **(a)**: reads `src/shared/http/tokenStore.ts` and sets `Authorization: Bearer …`, plus an `x-correlation-id` header and `meta.startedAt` for the timing log. It also owns the session bootstrap — the first request with no token in the store awaits one single-flight `POST /auth/login` and every request fired in the same tick queues behind it — and skips the attach entirely for `/auth/*`, because the login travels over this same instance and would otherwise wait on itself. The token store is plain module state, not Context: an interceptor registered at module load has no component to call `useContext` from. Pinned by `src/shared/http/interceptors.test.ts` ("attaches the bearer token", "does not attach a token to the login request itself", "shares one login") | [x] |
+| W4-D3-03 | Response interceptor — logging + error normalisation | R | One error shape reaching the UI regardless of what the transport returned | `src/shared/http/interceptors.ts` — interceptor **(b)** logs `[http] ← METHOD path status elapsedMs req-NNNN` off `config.meta`, and interceptor **(c)** turns all four failure shapes — a response with a status, an `AxiosError` with no response (timeout/`ECONNABORTED`), a `CanceledError`, and a non-axios throw — into one `ApiError { status, code, message, correlationId }`, preferring the server's own `code`/`message` over the transport's "Request failed with status code 503". Registered as three separate `use()` calls rather than one `use(onSuccess, onError)` pair, so each is ejectable and defensible on its own. `PolicyClaimsTab` renders `error.message` and now gets the backend's sentence. Pinned by `interceptors.test.ts` (503 and 404 normalisation, including the correlation id surviving onto the error) | [x] |
+| W4-D3-04 | 401 refresh with single-flight queue and retry guard | R | Concurrent `/underwriting` requests hitting an expired token must refresh once, not N times, and must not retry forever | `src/shared/http/interceptors.ts` — interceptor **(c)**'s `refreshOnce()`: a 401 sets `config._retry`, awaits the shared refresh promise (a second 401 arriving mid-flight joins it rather than starting its own — the queue *is* the promise; each waiter is already parked in its own `await` and resumes in place, so there is no hand-rolled replay list), then replays via `instance.request(config)` carrying the original correlation id and the new token. A replay that 401s again finds `_retry` set and is normalised instead of refreshed, which is the loop guard. Live toggle: `expire-token` in `src/shared/labs/registry.ts`, which revokes the presented token in the mock backend and switches itself off, so the next request 401s, refreshes and succeeds with nothing on screen going wrong. **Qualified — the *burst* is not clickable.** No built surface fires parallel requests: the Claims tab fires one, and `/underwriting` (W4-D5-04) is the surface the row's wording actually names and it does not exist yet. The concurrency claim is therefore pinned by test rather than by demo — `interceptors.test.ts` fires three requests at one expired token and asserts exactly one `POST /auth/refresh`, two attempts each, and the same `req-NNNN` on both attempts. Building a page that fires three requests to make this clickable would be a surface built for this row | [~] |
+| W4-D3-05 | Cancellation — `AbortSignal` through axios | R | Navigating away from `/underwriting` mid-request — the axios counterpart to the hand-rolled `AbortSignal` path in `src/shared/api.ts` | `src/shared/http/endpoints.ts` — `fetchClaimsForPolicy` / `submitClaim` pass the caller's signal straight through as axios's `config.signal`; the signal originates in `src/shared/hooks/useFetch.ts`'s `AbortController` and is consumed by `PolicyClaimsTab`. The backend half is `delay()` in `src/shared/http/mockBackend.ts`: `axios-mock-adapter` ignores `config.signal` entirely (it settles on a bare `setTimeout`), so without that listener the abort would be a no-op at the transport and the stale response would still arrive. It rejects with axios's own `CanceledError`, carrying the config so the abort is still attributable to a correlation id. Observable by clicking two policies' Claims tabs inside a second: `[useFetch] cleanup — aborting in-flight request` → `[api] ✕ … aborted` → `[http] ✕ … canceled 29ms req-NNNN`, and no `[api] ←` for the abandoned one. Pinned by `interceptors.test.ts` | [x] |
 | W4-D4-01 | `configureStore` + typed hooks | R | Store mounted for the Week 4 surfaces, with typed `useAppDispatch` / `useAppSelector` |  | [ ] |
 | W4-D4-02 | `createSlice` with Immer | R | Underwriting queue state written as mutation, applied immutably |  | [ ] |
 | W4-D4-03 | `createAsyncThunk` + `extraReducers` lifecycle | R | `/underwriting` load showing pending / fulfilled / rejected from one thunk |  | [ ] |
@@ -198,7 +198,7 @@ directly (see the Week 2 section above).
 
 ## Known weak claims
 
-**Total rows: 106. Solid `[x]`: 84. Qualified `[~]`: 7. Not built `[ ]`: 15.**
+**Total rows: 106. Solid `[x]`: 88. Qualified `[~]`: 8. Not built `[ ]`: 10.**
 
 > Corrected in Week 4 Day 2: this line read "Total rows: 83 … Not built: 1"
 > until now, and both numbers had been wrong since the Week 4 section was
@@ -256,6 +256,7 @@ explicitly, and an honest `[ ]` is the side of it this repo takes.
 | C-07 | `useFormStatus` | Real in `ClaimIntakeWizard`. Unobservable in `PolicyClaimsTab`'s `ClaimForm`: `handleLogClaim` closes the modal before its `await`, unmounting the form before `pending` can render. | Keeping the modal open until the action settles — which would cover the optimistic row (C-05) that is the actual feedback. The two features are in real tension; the hook loses. |
 | W3-D4-04 | `useLayoutEffect` vs `useEffect` | **Not built.** The concept lost its home when the premium bar moved into normal flow: under `position: sticky` the measured offset was not just unobservable but actively wrong, so the measurement and both effect branches were deleted rather than kept as dead code. `useLayoutEffect` appears nowhere under `src/`. | A feature that genuinely must read a rendered dimension before paint — a tooltip or popover positioned against its anchor, a virtualised list measuring row heights. This app has none, and adding one to carry the row would be a component built for the matrix. Recorded as a gap instead. |
 | W2-D1-01 | Mount-only fetch (`[]` deps) | No `[]`-deps *fetch* exists. `useFetch`'s `[policyId]` effect runs once on mount, but that is an argument for not building the row, not a demonstration of it. | A feature that genuinely fetches once and never refetches. Adding one to `PolicyClaimsTab` would ship the stale-data bug `useFetch` exists to prevent. |
+| W4-D3-04 | 401 single-flight refresh | The refresh, the queue and the `_retry` guard are all real and all execute — but only the *single-request* half is clickable. The `expire-token` lab toggle shows one 401 recovering; the concurrent burst the row is actually about needs a surface that fires several requests at once, and no built surface does. It is pinned by `interceptors.test.ts` (three parallel 401s → one `POST /auth/refresh`) rather than by a demo. | `/underwriting` (W4-D5-04), which loads a queue, its filters and its totals together and hits the expired token with all of them. Adding a page that fires three requests before then would be a surface built for this row. |
 | W4-D2-04 | `styled()` on more than one surface | `StatusChip` is real, themed, and rendered — but on /dashboard only. The row asks for reuse across MUI surfaces, and the other two (/underwriting, `ClaimIntakeWizard`) are still pre-Week-4 placeholders, so "reusable" is currently an assertion about the component rather than an observation about the app. | The /underwriting queue table (W4-D4-03) rendering policy status, which is a surface that wants the badge for its own reasons. Inventing a second consumer before then would be a component built for this file. |
 
 ### Repaired rather than downgraded
@@ -297,7 +298,7 @@ held its interval id in a ref where the effect's own closure already sufficed.
 
 ## Audit
 
-Total rows: **106**. Solid: **84**. Qualified: **7**. Not built: **15** (W3-D4-04 plus the 14 Week 4 rows still open — see [Still unchecked after Week 4 Day 1](#still-unchecked-after-week-4-day-1)).
+Total rows: **106**. Solid: **88**. Qualified: **8**. Not built: **10** (W3-D4-04 plus the 9 Week 4 rows still open — see [Still unchecked after Week 4 Day 3](#still-unchecked-after-week-4-day-3)).
 
 > Corrected in Phase 0: this line previously read "Total rows: 78", which did
 > not match the file. Counted by section: W1 14, W2 28 (D1 7, D2 7, D3 4,
@@ -762,3 +763,59 @@ Every row in Phase 4's own target list (W3-D3-01…05, W3-D4-01…03, W3-D5-01�
 C-02) closed, with no bonuses and no deferrals. Week 1, Week 2 and Week 3 are
 now complete in full — 78 of 83 rows — and everything still open is a
 completeness-tier row that Phase 5 owns per `docs/phase-prompts.md`.
+
+---
+
+## Still unchecked after Week 4 Day 3
+
+**9 Week 4 rows, plus W3-D4-04.** This pass closed its full five-row target
+list — W4-D3-01 through W4-D3-05 — four of them solid and one (`W4-D3-04`)
+qualified for a reason stated on the row and in
+[Known weak claims](#known-weak-claims). No bonuses, no deferrals.
+
+- **W4-D1 (1 of 4):** W4-D1-02 (`Dialog` and `Button` still have no call
+  site) — unchanged, `[~]`.
+- **W4-D2 (1 of 5):** W4-D2-04 (`styled()` on more than one surface) —
+  unchanged, `[~]`.
+- **W4-D4 (5):** the whole Redux Toolkit section. No store is mounted.
+  W4-D4-05 (Context retained for `QuoteContext`) still cannot be claimed: a
+  contrast with nothing on the other side of it is just the Week 2 row it
+  already is.
+- **W4-D5 (4):** the whole react-hook-form + Zod section, and W4-D5-04, the
+  integrated `/underwriting` surface. `ClaimIntakeWizard` still runs on
+  `useActionState` and hand-rolled per-step validation (C-06), which is the
+  baseline W4-D5-01…03 replace.
+- **W3-D4-04 (1):** `useLayoutEffect`. Unchanged and still honestly unbuilt.
+
+### Two things this pass changed outside its own rows
+
+**The axios stack landed on the Claims tab, not on `/underwriting`.** Four of
+the five W4-D3 rows name `/underwriting` in their "feature that forces it"
+column, and that route is still a role-gated placeholder. The choice was
+between wiring the transport to a surface that exists and building a surface
+to justify the transport; `CLAUDE.md` settles it — one real consumer beats a
+page built for the matrix. `PolicyClaimsTab` was the right one because it
+already owns both halves of the contract the interceptors need: a `useFetch`
+read whose `AbortSignal` proves cancellation, and a write whose forced-failure
+lab toggle proves error normalisation. When `/underwriting` is built it takes
+over the burst demo (W4-D3-04) without any of this moving.
+
+**`CLAUDE.md` says "all async goes through `src/shared/api.ts`", and one
+surface now does not.** That rule was written when there was one transport.
+The Week 4 boundary asks for a second one — the whole point of W4-D3 is to
+re-solve the same problem with a library — so the Claims tab's two calls now
+go through `src/shared/http` and everything else still goes through `api.ts`.
+`api.ts` is not deprecated, not wrapped and not deleted: it keeps the
+`use()`/`<Suspense>` cached-promise path (which axios has no equivalent for,
+and which W3-D5 depends on), it keeps every other route, and it is the control
+group the interceptor stack is read against. The one thing that would have
+broken the rule's intent — two copies of the *data* — did not happen: the mock
+backend answers from `src/shared/data`, the same single source of truth
+`api.ts` reads.
+
+**A sixth lab defect was registered:** `expire-token` in
+`src/shared/labs/registry.ts`, documented in `docs/failure-modes.md`. It is
+one-shot on purpose — the backend revokes the presented token, answers 401,
+and switches the toggle back off — so the demo ends in a *recovery* rather
+than in a failure. A toggle that stayed on would 401 the replayed request too,
+and the refresh flow would look broken while working correctly.

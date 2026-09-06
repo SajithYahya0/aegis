@@ -1,10 +1,32 @@
 /**
  * WHY THIS EXISTS:
  *   `/policies/:id/claims`. Loads this policy's claims through `useFetch` —
- *   the abortable, `useEffect`-driven path from `api.ts` (as opposed to the
- *   cached-promise `use()` path `PolicyCoverageTab` and friends read from
- *   synchronously) — and lets the agent log a new claim from a modal without
- *   leaving the tab.
+ *   the abortable, `useEffect`-driven path (as opposed to the cached-promise
+ *   `use()` path `PolicyCoverageTab` and friends read from synchronously) —
+ *   and lets the agent log a new claim from a modal without leaving the tab.
+ *
+ *   This is the one surface wired to the axios stack in `shared/http`
+ *   (W4-D3-01…05). Its read and its write both go over a configured axios
+ *   instance, through the request interceptor that attaches the bearer token,
+ *   the success interceptor that times the round trip, and the error
+ *   interceptor that normalises every failure into `ApiError` and recovers
+ *   from a 401 by refreshing once. Everything else in the app still uses
+ *   `src/shared/api.ts`, which is the control group: the same two calls,
+ *   hand-rolled, over the same in-memory book. The diff between the two
+ *   transports at this call site is one import line, which is the honest
+ *   measure of what the library bought.
+ *
+ *   CANCELLATION SURVIVED THE MOVE, and that is the part worth checking
+ *   rather than assuming. `useFetch` hands its `AbortController`'s signal to
+ *   the fetcher; the fetcher passes it to axios as `config.signal`; the mock
+ *   backend watches that same signal while it simulates latency and rejects
+ *   with axios's `CanceledError` the moment it fires. Click POL-A's Claims
+ *   tab and then POL-B's inside the same second and the console prints, in
+ *   order: `[useFetch] cleanup — aborting in-flight request`, then
+ *   `[api] ✕ GET /policies/POL-A/claims aborted`, then `[http] ✕ … canceled`.
+ *   No second `[api] ←` line for POL-A ever arrives — which is the whole
+ *   claim, because the alternative is POL-A's claims rendering under POL-B's
+ *   header.
  *
  *   It is also where the optimistic claim submission lives (C-05): the modal
  *   closes the instant the agent submits, and the new claim appears in the
@@ -18,17 +40,27 @@
  *   update needs and the wizard does not: a list already on screen to show it
  *   in.
  *
- * CONCEPTS: (fetch mechanics live in useFetch — see its header for
+ * CONCEPTS: W4-D3-01, W4-D3-02, W4-D3-03, W4-D3-04, W4-D3-05 (this file is
+ *   the consuming surface; the mechanisms live in `shared/http` — see those
+ *   headers). Also: fetch mechanics live in useFetch — see its header for
  *   W2-D1-01, W2-D1-02, W2-D1-03; the append flow below is C-10; the claim
  *   form's own submit is C-06/C-07, same pattern as ClaimIntakeWizard but
  *   with real per-field errors read from FormData instead of closed-over
- *   state; the optimistic list is C-05)
+ *   state; the optimistic list is C-05
  *
  * WITHOUT THIS:
  *   `useFetch` would export a generic hook nothing in the app actually
  *   calls, and the fetch/abort/refetch story would only be provable by
  *   reading its source rather than by clicking between two policies' Claims
  *   tabs and watching the console.
+ *
+ *   And `shared/http` would be a folder of interceptors nothing executes.
+ *   Registered interceptors that no request passes through are the exact
+ *   failure `CLAUDE.md` calls out — code that satisfies a checklist without
+ *   running — and they fail silently: a token-attach interceptor with no
+ *   caller looks identical, in the source, to one that works. One real
+ *   consumer is what turns "the interceptor attaches a bearer token" into
+ *   something a reviewer can watch happen in the network log.
  *
  *   No `flushSync` around the append: `setAppended` is a normal batched
  *   update, so `lastRowRef.current` is still `null` (or still pointing at
@@ -61,7 +93,7 @@
 import { useActionState, useEffect, useOptimistic, useRef, useState, type ReactElement } from 'react';
 import { flushSync, useFormStatus } from 'react-dom';
 import { useParams } from 'react-router-dom';
-import { fetchClaimsForPolicy, submitClaim } from '../../shared/api';
+import { fetchClaimsForPolicy, submitClaim } from '../../shared/http';
 import { Modal, type ModalHandle } from '../../shared/components/Modal';
 import { SubmitButton } from '../../shared/components/SubmitButton';
 import { TextField } from '../../shared/components/TextField';

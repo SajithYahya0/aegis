@@ -7,8 +7,8 @@
  *   hooks, and a `useContext` call cannot be trusted to survive next to that.
  *
  * CONCEPTS: (infrastructure for W2-D1-05, W2-D1-06, W2-D3-02, W3-D2-01,
- *   W3-D4-03, C-05 — see the individual demo files, QuoteContext and
- *   PolicyClaimsTab for where each one fires)
+ *   W3-D4-03, W4-D3-04, C-05 — see the individual demo files, QuoteContext,
+ *   PolicyClaimsTab and shared/http/mockBackend.ts for where each one fires)
  *
  * WITHOUT THIS:
  *   Every defect would need its own bespoke boolean prop threaded down from
@@ -24,7 +24,8 @@ export type LabDefectId =
   | 'object-literal-effect-dep'
   | 'stale-closure-interval'
   | 'risk-feed-outage'
-  | 'claim-submit-failure';
+  | 'claim-submit-failure'
+  | 'expire-token';
 
 export interface LabDefect {
   id: LabDefectId;
@@ -114,10 +115,12 @@ export const LAB_DEFECTS: readonly LabDefect[] = [
     title: 'Claim submission forced to fail',
     matrixId: 'C-05',
     summary:
-      'PolicyClaimsTab passes forceFailure: true to api.ts’s submitClaim ' +
-      'whenever this is on, so the underwriting gateway rejects the write ' +
-      'regardless of what was actually filled in — the same forced rejection ' +
-      'submitClaim has supported since Phase 0, finally with a caller.',
+      'PolicyClaimsTab sends forceFailure: true in the POST ' +
+      '/policies/:id/claims body whenever this is on, so the mock backend ' +
+      'answers 502 and the underwriting gateway rejects the write regardless ' +
+      'of what was actually filled in — the same forced rejection api.ts’s ' +
+      'submitClaim has supported since Phase 0, now travelling over the axios ' +
+      'transport as a real HTTP status the error interceptor normalises.',
     symptom:
       'Open any policy → Claims tab → "Log claim", fill in a valid amount and ' +
       'description, submit. The row appears in the table immediately, ' +
@@ -128,6 +131,30 @@ export const LAB_DEFECTS: readonly LabDefect[] = [
       'toast reports the rejection. Turn the toggle off and submit the same ' +
       'form: the row appears the same way and this time it sticks, because ' +
       'the real write behind it succeeded.',
+  },
+  {
+    id: 'expire-token',
+    title: 'Expire the access token',
+    matrixId: 'W4-D3-04',
+    summary:
+      'The mock backend revokes whatever access token the next request ' +
+      'presents and answers it 401, then switches this toggle back off. The ' +
+      'response interceptor catches the 401, calls POST /auth/refresh once, ' +
+      'and replays the original request with the new token — so the refresh ' +
+      'flow is demonstrated live rather than described.',
+    symptom:
+      'Turn this on, then open any policy’s Claims tab (or switch to another ' +
+      'policy’s). The claims still load — that is the point — but the console ' +
+      'shows the whole recovery: "[api] ✕ GET /policies/…/claims 401 (lab: ' +
+      'expire-token)", then "[auth] ↻ refreshing session", then "[api] → POST ' +
+      '/auth/refresh", then "[http] ↻ replaying GET …" carrying the same ' +
+      'req-NNNN correlation id as the attempt that failed. Nothing on screen ' +
+      'reports an error, because nothing went wrong from the user’s side: one ' +
+      'request took two round trips instead of one. Turn it on again and ' +
+      'navigate between two policies quickly to see several requests hit the ' +
+      'same expired token — there is still exactly one POST /auth/refresh, ' +
+      'because concurrent 401s join the in-flight refresh instead of starting ' +
+      'their own ("[auth] ⇢ joining the in-flight refresh").',
   },
 ];
 

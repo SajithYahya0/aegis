@@ -70,6 +70,12 @@ function sandboxFor(id: LabDefectId): ReactElement | null {
       // rollback inside a real claims list, which this panel does not have.
       // The demo is any policy's Claims tab.
       return null;
+    case 'expire-token':
+      // No inline sandbox, and the reason is the same shape as the risk-feed
+      // one: what is being demonstrated is that a real request recovers
+      // without the surface it came from noticing. A sandbox firing its own
+      // request would show the console output and none of that.
+      return null;
   }
 }
 
