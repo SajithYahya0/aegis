@@ -10,7 +10,17 @@
  *   `use(onSuccess, onError)` pair, because they answer three different
  *   questions and are meant to be defended one at a time.
  *
- * CONCEPTS: W4-D3-02, W4-D3-03, W4-D3-04
+ * CONCEPTS: W4-D3-02, W4-D3-03, W4-D3-04, W4-D4-01
+ *
+ *   WHERE THE TOKEN LIVES: `store.getState().auth.token`, read fresh on every
+ *   outgoing request. It used to be a module-level variable in
+ *   `tokenStore.ts`, which is now deleted. That file's own header argued the
+ *   token could not live with the rest of the session because an interceptor
+ *   runs outside React and cannot call `useContext` — true of Context, and
+ *   the exact constraint a Redux store does not have. `store.getState()` is a
+ *   plain function call from anywhere, so the session is one object again:
+ *   the UI subscribes to it through `useAppSelector`, this file reads it
+ *   directly, and there is no second copy to drift.
  *
  * WITHOUT THIS:
  *   (a) No request interceptor: every call site attaches its own
@@ -48,15 +58,13 @@
  */
 
 import axios, { isAxiosError, type AxiosError, type AxiosInstance } from 'axios';
-import { clearTokens, getAccessToken, getRefreshToken, setTokens, type TokenPair } from './tokenStore';
+import { loginThunk, logout, refreshThunk } from '../store/authSlice';
+import type { AppStore } from '../store';
 
 /** Endpoints that must not have a token attached — see `ensureAccessToken`. */
 const AUTH_PATH = /^\/auth\//;
 
 const CORRELATION_HEADER = 'x-correlation-id';
-
-/** Demo session. There is no login screen; the identity is fixed. */
-const DEMO_LOGIN = { username: 'priya.nair', role: 'agent' } as const;
 
 /* -------------------------------------------------------------------------- */
 /* The one error type                                                         */
@@ -119,6 +127,23 @@ function isAuthEndpoint(url: string | undefined): boolean {
   return AUTH_PATH.test(url ?? '');
 }
 
+/**
+ * `dispatch(thunk).unwrap()` re-throws whatever `rejectWithValue` was handed —
+ * here a plain string. A string escaping into a `catch` block is precisely the
+ * "one error shape" contract this module exists to keep, so it is put back
+ * into an `ApiError` before it can leave.
+ */
+function asApiError(reason: unknown, code: string, fallback: string): ApiError {
+  if (reason instanceof ApiError) return reason;
+  const message =
+    typeof reason === 'string' && reason
+      ? reason
+      : reason instanceof Error && reason.message
+        ? reason.message
+        : fallback;
+  return new ApiError({ status: 401, code, message, correlationId: 'req-????' });
+}
+
 /** Server-supplied `{ code, message }`, when the response body carries one. */
 function bodyFields(data: unknown): { code?: string; message?: string } {
   if (typeof data !== 'object' || data === null) return {};
@@ -178,16 +203,22 @@ function normalise(error: AxiosError): ApiError {
  * that makes the second test's "does it attach a token" assertion pass for
  * the wrong reason.
  */
-export function installInterceptors(instance: AxiosInstance): () => void {
+export function installInterceptors(instance: AxiosInstance, store: AppStore): () => void {
   /** The bootstrap `POST /auth/login`, shared by everything waiting on it. */
   let sessionPromise: Promise<string> | null = null;
   /** The in-flight `POST /auth/refresh`. This is the single-flight queue. */
   let refreshPromise: Promise<string> | null = null;
 
   async function login(): Promise<string> {
-    const response = await instance.post<TokenPair>('/auth/login', DEMO_LOGIN);
-    setTokens(response.data);
-    return response.data.accessToken;
+    try {
+      // The role comes from the store rather than a constant: the mock backend
+      // stamps it into the token, so a session bootstrapped while the user is
+      // acting as an underwriter must not be minted as an agent.
+      const pair = await store.dispatch(loginThunk(store.getState().auth.role)).unwrap();
+      return pair.accessToken;
+    } catch (reason) {
+      throw asApiError(reason, 'LOGIN_FAILED', 'Could not start a session.');
+    }
   }
 
   /**
@@ -204,7 +235,9 @@ export function installInterceptors(instance: AxiosInstance): () => void {
    * to wait for a token would mean waiting for itself.
    */
   function ensureAccessToken(): Promise<string> {
-    const existing = getAccessToken();
+    // W4-D4-01: the bearer token is read straight off the store. There is no
+    // module-level token variable left in this folder to go stale against it.
+    const existing = store.getState().auth.token;
     if (existing) return Promise.resolve(existing);
 
     sessionPromise ??= login().finally(() => {
@@ -230,32 +263,20 @@ export function installInterceptors(instance: AxiosInstance): () => void {
 
     console.log('[auth] ↻ refreshing session');
     refreshPromise = (async () => {
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) {
-        throw new ApiError({
-          status: 401,
-          code: 'NO_REFRESH_TOKEN',
-          message: 'Session expired and there is no refresh token to renew it with.',
-          correlationId: 'req-????',
-        });
-      }
-
       try {
-        const response = await instance.post<TokenPair>('/auth/refresh', { refreshToken });
-        setTokens(response.data);
-        return response.data.accessToken;
-      } catch (error) {
-        // A refused refresh is terminal. Leaving the dead tokens in place
-        // would have the next request attach them, 401, and refresh again.
-        clearTokens();
-        throw error instanceof ApiError
-          ? error
-          : new ApiError({
-              status: 401,
-              code: 'REFRESH_FAILED',
-              message: 'Session expired.',
-              correlationId: 'req-????',
-            });
+        // The refresh token is read inside the thunk, off the same store —
+        // see `refreshThunk` for why it is not passed in from here.
+        const pair = await store.dispatch(refreshThunk()).unwrap();
+        return pair.accessToken;
+      } catch (reason) {
+        // A refused refresh is terminal, and ending the session is this
+        // module's call rather than the slice's: `refresh/rejected` records
+        // what happened to one request, `logout()` decides there is no
+        // session left. Leaving the dead tokens in place would have the next
+        // request attach them, 401, and refresh again — a slow loop instead
+        // of one clean failure the UI can show.
+        store.dispatch(logout());
+        throw asApiError(reason, 'REFRESH_FAILED', 'Session expired.');
       }
     })().finally(() => {
       refreshPromise = null;

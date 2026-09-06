@@ -34,26 +34,39 @@ import MockAdapter from 'axios-mock-adapter';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiError, installInterceptors } from './interceptors';
 import { installMockBackend } from './mockBackend';
-import { clearTokens } from './tokenStore';
+import { makeStore, type AppStore } from '../store';
 import { setLabEnabled } from '../labs/registry';
 import type { Claim, Policy } from '../types';
 
 interface Stack {
   instance: AxiosInstance;
   mock: MockAdapter;
+  store: AppStore;
   uninstall: () => void;
 }
 
 const teardowns: Array<() => void> = [];
 
-/** A private stack per test: its own instance, its own backend session state. */
+/**
+ * A private stack per test: its own instance, its own backend session state,
+ * and — since the session moved into Redux — its own store.
+ *
+ * The store is the reason `installInterceptors` takes one at all. Left to the
+ * app's singleton, the token minted by the first test would still be sitting
+ * in `state.auth` when the second ran, and "logs in once and attaches the
+ * bearer token" would pass without a login ever happening. It also keeps the
+ * thunks pointed at *this* instance: `makeStore` hands `{ http: instance }` to
+ * the thunk middleware as its extra argument, so `POST /auth/login` from
+ * inside `loginThunk` lands on the mock backend this test owns.
+ */
 function makeStack(latency = 20): Stack {
   const instance = axios.create({ baseURL: '/api', timeout: 8000 });
   // 20ms instead of 400-900ms: these tests are about ordering and counts, and
   // the abort test still needs a window in which something is in flight.
   const mock = installMockBackend(instance, { latencyMs: () => latency });
-  const uninstall = installInterceptors(instance);
-  const stack: Stack = { instance, mock, uninstall };
+  const store = makeStore({ http: instance });
+  const uninstall = installInterceptors(instance, store);
+  const stack: Stack = { instance, mock, store, uninstall };
   teardowns.push(() => {
     uninstall();
     mock.restore();
@@ -67,10 +80,10 @@ function postsTo(mock: MockAdapter, url: string): number {
 
 afterEach(() => {
   while (teardowns.length > 0) teardowns.pop()?.();
-  // The token store is module state shared by every stack, so a session left
-  // behind by one test would make the next test's "does it log in" assertion
-  // pass without a login ever happening.
-  clearTokens();
+  // No token teardown any more: the session lives in a store built per stack,
+  // so it is discarded with the stack. This used to be a `clearTokens()` call
+  // against module state shared by every test — the kind of cleanup that is
+  // invisible when it is forgotten and mystifying when it is not.
   setLabEnabled('expire-token', false);
 });
 
@@ -181,7 +194,7 @@ describe('401 refresh', () => {
     mock.onPost('/auth/login').reply(200, { accessToken: 'at-1', refreshToken: 'rt-1' });
     mock.onPost('/auth/refresh').reply(200, { accessToken: 'at-2', refreshToken: 'rt-2' });
     mock.onGet('/vault').reply(401, { code: 'TOKEN_EXPIRED', message: 'Access token expired.' });
-    const uninstall = installInterceptors(instance);
+    const uninstall = installInterceptors(instance, makeStore({ http: instance }));
     teardowns.push(() => {
       uninstall();
       mock.restore();

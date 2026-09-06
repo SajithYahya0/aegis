@@ -7,10 +7,7 @@
  *   the result, because the `<Suspense>` and `<ErrorBoundary>` around it in
  *   `PolicyDetailPage` own both of those.
  *
- *   It is also where `use()` reads Context inside a conditional branch — the
- *   thing `useContext` cannot do.
- *
- * CONCEPTS: W3-D5-01, W3-D5-02, W3-D5-03
+ * CONCEPTS: W3-D5-01, W3-D5-02
  *
  * WITHOUT THIS:
  *   Three separate failures, one per thing this file proves.
@@ -43,27 +40,38 @@
  *   climb, real requests do not. One `→` line, many `⤳` lines: that is the
  *   cache working. If the cache were removed, every `⤳` would be a `→`.
  *
- *   3. No `use(AuthContext)` in the branch — `useAuth()` at the top instead.
- *   This is the one place the difference is load-bearing rather than stylistic.
- *   `useAuth` wraps `useContext`, so it obeys the rules of hooks: it must be
- *   called unconditionally, on every render, before any branch. That registers
- *   this fiber as an auth consumer *permanently* — so flipping the role in the
- *   header re-renders this card for every policy in the book, including the
- *   ~85% whose status is `active` and which therefore never render the
- *   reinstatement note that the role actually affects. `use()` has no such
- *   rule. Called inside the `if`, it registers the context dependency only on
- *   renders that actually take the branch, so an active policy's card is not
- *   subscribed to auth at all and a role switch does not touch it.
+ *   3. THE ROLE READ, AND WHAT MOVING IT TO REDUX COST. This component used to
+ *   read the role with `use(AuthContext)` *inside* the `lapsed`/`cancelled`
+ *   branch below — the one thing `useContext` cannot do, since a hook must be
+ *   called unconditionally on every render. The payoff was real: an active
+ *   policy's card never registered as an auth consumer at all, so switching
+ *   role in the AppBar did not touch it.
  *
- *   The rule `use()` still obeys: it must be called from a component or hook
- *   during render, and it cannot be called after the component has returned.
- *   Conditional is fine; asynchronous is not.
+ *   That is gone, and it is gone for a reason worth stating plainly rather
+ *   than papering over. `AuthContext` no longer exists; the session is a Redux
+ *   slice, and `useAppSelector` is a hook — it subscribes this fiber to the
+ *   store on every render whether the branch is taken or not. Keeping the old
+ *   trick would have meant keeping `AuthContext` alive as a second home for
+ *   the role, which is precisely the two-sources-of-truth problem the
+ *   migration removed. There is no conditional, *reactive* store read to
+ *   replace it with: `use(ReactReduxContext)` inside the branch would compile
+ *   and would return the store, but the store reference never changes, so the
+ *   reinstatement note would be computed once and then go stale the moment the
+ *   role was switched — a correctness bug traded for a render saving.
+ *
+ *   The render saving that was lost is one re-render, of one card, per role
+ *   switch: only one `PolicySummaryCard` is ever mounted, because it is the
+ *   header of a single `/policies/:id`. The conditional-`use()` mechanism it
+ *   demonstrated, however, is not replaced anywhere — see W3-D5-03 in
+ *   `docs/coverage-matrix.md`, which is recorded as an honest gap rather than
+ *   rehomed onto a component invented to carry it.
  */
 
 import { use, useState, type ReactElement } from 'react';
 import { getPolicyResource } from '../../shared/api';
 import { formatCurrency, formatDate, POLICY_STATUS_LABEL, POLICY_TYPE_LABEL } from '../../shared/format';
-import { AuthContext } from '../../shared/store/AuthContext';
+import { useAppSelector } from '../../shared/store';
+import { selectIsUnderwriter } from '../../shared/store/selectors';
 import styles from './PolicySummaryCard.module.css';
 
 export interface PolicySummaryCardProps {
@@ -78,6 +86,13 @@ export function PolicySummaryCard({ policyId }: PolicySummaryCardProps): ReactEl
    */
   const detail = use(getPolicyResource(policyId));
 
+  /*
+   * Unconditional, because a hook has to be. See (3) in the header for what
+   * that costs and why the conditional `use(AuthContext)` it replaces could
+   * not survive the move to Redux.
+   */
+  const isUnderwriter = useAppSelector(selectIsUnderwriter);
+
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   // Renders climb every time this logs; `[api] →` does not. That gap is the
@@ -87,21 +102,16 @@ export function PolicySummaryCard({ policyId }: PolicySummaryCardProps): ReactEl
   const { policy, customer, claims, documents } = detail;
 
   /*
-   * W3-D5-03. The conditional context read. A lapsed or cancelled policy shows
-   * a reinstatement note whose wording depends on who is looking; an active
-   * policy shows nothing here and never reads auth at all.
-   *
-   * `use()` returns the context value the same way `useContext` would,
-   * including the `null` default — this component sits under `AuthProvider`
-   * via `App.tsx`, so the fallback branch is defensive rather than expected.
+   * A lapsed or cancelled policy shows a reinstatement note whose wording
+   * depends on who is looking. The branch is still a branch — an active policy
+   * renders nothing here — but the role behind it is now read above, on every
+   * render, rather than inside this `if`.
    */
   let reinstatement: string | null = null;
   if (policy.status === 'lapsed' || policy.status === 'cancelled') {
-    const auth = use(AuthContext);
-    reinstatement =
-      auth?.role === 'underwriter'
-        ? `Reinstatement is within your authority — ${customer.name} has ${claims.length} claim(s) on file.`
-        : 'Reinstatement requires underwriter approval. Refer this policy before quoting.';
+    reinstatement = isUnderwriter
+      ? `Reinstatement is within your authority — ${customer.name} has ${claims.length} claim(s) on file.`
+      : 'Reinstatement requires underwriter approval. Refer this policy before quoting.';
   }
 
   return (

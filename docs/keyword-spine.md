@@ -54,10 +54,10 @@ are caveats on rows that are otherwise solid.
 
 ### Context
 
-**createContext + Provider** · W2-D2-04 — `AuthProvider` — `RequireRole` is not a child of any page and could not receive a drilled prop at all.
-**useContext** · W2-D2-05 — `useAuth()` in `RequireRole` — the guarded read; unconditional, so it keeps the missing-provider error.
+**createContext + Provider** · W2-D2-04 — `QuoteProvider`, `ThemeModeProvider` — rehomed from `AuthProvider`, which the Redux migration deleted (W4-D4-01). MUI reads the theme from a provider or not at all.
+**useContext** · W2-D2-05 — `useQuote()` in the wizard steps, `useThemeChoice()` in `AppShell` — the guarded reads; unconditional, so they keep the missing-provider error.
 **Split context** · W2-D2-06 — `QuoteStateContext` / `QuoteDispatchContext` ⚠ — `dispatch` is stable, so a dispatch-only consumer need not re-render on state changes. No such consumer exists here, and the steps lack `React.memo`, so the split is currently inert.
-**Guarded context hook** · W2-D2-07 — `useAuth` throws — "must be called within `<AuthProvider>`", not `Cannot read properties of null` three frames into someone else's render.
+**Guarded context hook** · W2-D2-07 — `useQuote` / `useThemeChoice` throw — "must be called within a `<QuoteProvider>`", not `Cannot read properties of null` three frames into someone else's render. `useAuth` kept its name over `useAppSelector`; react-redux raises that error itself now.
 
 ### Reducers
 
@@ -88,7 +88,7 @@ are caveats on rows that are otherwise solid.
 **React.memo** · W3-D1-01 — `PolicyRow` — 140 rows re-executing on every keystroke; with the memo, zero for keystrokes that leave the set unchanged (measured, `docs/render-counts.md`).
 **Custom comparator** · W3-D1-02 — `PremiumBadge` ⚠ — compares formatted strings, not raw amounts. Never actually runs: its memoised parent bails out first, and the comparator costs two `Intl` calls to skip a render costing one.
 **useMemo expensive** · W3-D1-03 — `rateBook` in `PoliciesPage` — keyed on the *whole book*, never on `filtered`; keying on `filtered` makes it cheaper as you type (inverting the claim) and hands every visible row a new `premium` object.
-**useMemo context value** · W3-D1-04 — `AuthProvider` ⚠ — stops the provider handing consumers a fresh object identity. In this tree `role` is the only state, so the bail-out branch is unreachable; correct-by-construction rather than currently load-bearing.
+**useMemo provider value** · W3-D1-04 — `ThemeModeProvider`'s `theme` — stops `ThemeProvider`, which compares by identity, handing every `styled()` and `sx` consumer in the app a fresh theme. Bail-out is reachable: Dark → System on a light machine changes `choice` but not `mode`. Rehomed from `AuthProvider` (deleted, W4-D4-01) and upgraded from ⚠.
 **useCallback** · W3-D1-05 — `handleSelect` — a new `onSelect` identity every render defeats `PolicyRow`'s memo via a different prop; deps are `[setRecentIds]`, stable because `useLocalStorage` returns the raw setter.
 **When NOT to memoise** · W3-D1-06 — `FilterStatus` — props derive from `rawQuery` and are new on every render that reaches it; a comparator would report "changed" every time and cost extra.
 
@@ -123,7 +123,7 @@ are caveats on rows that are otherwise solid.
 
 **use(promise)** · W3-D5-01 — `PolicySummaryCard` — no loading state, no error state, `detail` not nullable; a render that reaches line one already has the data.
 **Cached promise** · W3-D5-02 — `getPolicyResource` — `use(fetch(id))` calls fetch *during render*, so settle → re-render → new promise → suspend, forever. One `[api] →` against many `⤳ cache hit` is the proof.
-**use(Context) conditionally** · W3-D5-03 — `use(AuthContext)` inside the lapsed/cancelled branch — `useContext` subscribes every card permanently, so a role switch re-renders the ~85% that never show the reinstatement note.
+**use(Context) conditionally** · W3-D5-03 ✗ **not built** — was `use(AuthContext)` inside the lapsed/cancelled branch; the Redux migration (W4-D4-01) deleted the Context and `useAppSelector` cannot be called in a branch. `use(ReactReduxContext)` would compile and go stale. Cost of the gap: one re-render of one card per role switch.
 **Suspense + boundary** · W3-D5-04 — `RiskExposurePanel` — the same rejected promise goes through both in sequence: pending → Suspense, rejected → boundary. Boundary *outside*, or the rejection has nowhere to land.
 **Lazy refactor** · W3-D5-05 — `App.tsx` — before splitting, a broken route import failed the build; after, it builds, deploys, and breaks exactly one page. `App.test.tsx` is that click-through, automated.
 

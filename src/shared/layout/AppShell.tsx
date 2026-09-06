@@ -6,7 +6,15 @@
  *   owns the route table's `<Outlet>`, so this file has no idea what is
  *   rendered inside it.
  *
- * CONCEPTS: W4-D1-02, W4-D1-04, W4-D2-03, W2-D4-04, W3-D3-05
+ * CONCEPTS: W4-D1-02, W4-D1-04, W4-D2-03, W2-D4-04, W3-D3-05, W4-D4-01, W4-D4-03
+ *
+ *   WITHOUT THE ROLE SWITCHER READING REDUX: it read `AuthContext` until the
+ *   session moved into a Redux slice, and the call site is deliberately
+ *   unchanged — `useAuth()` is now a thin wrapper over `useAppSelector`, so
+ *   this file's diff for that migration is one import line. What did change is
+ *   that the switch now has a *duration*: it re-authenticates, so the control
+ *   has three lifecycle states to render rather than one value to set. See the
+ *   comment on the `TextField` below.
  *
  * WITHOUT THIS:
  *   On a phone the app is unusable. The chrome this replaces was a CSS grid
@@ -85,7 +93,7 @@ import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 import { AS_OF } from '../data';
 import { formatDate } from '../format';
 import { preloadPath } from '../routes/lazyRoutes';
-import { useAuth } from '../store/AuthContext';
+import { useAuth } from '../store/useAuth';
 import { useThemeChoice, type ThemeChoice } from '../theme/ThemeModeProvider';
 import type { Role } from '../types';
 
@@ -130,7 +138,7 @@ function themeIcon(choice: ThemeChoice): ReactElement {
 }
 
 export function AppShell({ children }: { children: ReactNode }): ReactElement {
-  const { user, role, switchRole } = useAuth();
+  const { user, role, status, error, switchRole } = useAuth();
   const { choice, setChoice } = useThemeChoice();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -244,11 +252,25 @@ export function AppShell({ children }: { children: ReactNode }): ReactElement {
             {user.name} · {user.branch}
           </Typography>
 
+          {/*
+            The three lifecycle states of `loginThunk` land here, and this is
+            the only place in the app they are visible. Switching role
+            re-authenticates (the backend stamps the role into the token it
+            issues), so `status` goes 'loading' for the length of that round
+            trip and the control locks itself: without the lock a second
+            switch fires while the first is still in flight, both resolve, and
+            which token the store keeps is decided by whichever `fulfilled`
+            lands last — an underwriter left holding an agent's token, with
+            nothing on screen to say so.
+          */}
           <TextField
             select
             size="small"
             label="Viewing as"
             value={role}
+            disabled={status === 'loading'}
+            error={status === 'error'}
+            helperText={status === 'error' ? error : undefined}
             onChange={(event) => switchRole(event.target.value as Role)}
             sx={{ minWidth: 132 }}
           >

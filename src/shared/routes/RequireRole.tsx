@@ -4,7 +4,7 @@
  *   that an agent who types the URL directly — not just one who clicks a
  *   hidden nav link — is actually turned away.
  *
- * CONCEPTS: W2-D2-05, W2-D4-06, W2-D4-08, W2-D4-09
+ * CONCEPTS: W2-D4-06, W2-D4-08, W2-D4-09, W4-D4-01
  *
  * WITHOUT THIS:
  *   No wrapper means the route table has to special-case `/underwriting`
@@ -18,7 +18,7 @@
 
 import { useEffect, type ReactElement, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../store/AuthContext';
+import { useAuth } from '../store/useAuth';
 import type { Role } from '../types';
 
 export interface RequireRoleProps {

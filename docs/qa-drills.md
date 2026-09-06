@@ -389,47 +389,79 @@ currently inert — here is what it would take to make it real."
 </details>
 
 <details>
-<summary><b>4.2</b> — <code>AuthProvider</code> wraps its value in <code>useMemo</code>. Its only state is <code>role</code>, and the value depends on <code>role</code>. When can that memo ever bail out?</summary>
+<summary><b>4.2</b> — <code>switchRole</code> in <code>authSlice.ts</code> assigns straight to <code>state.role</code>. <code>quoteReducer</code>, one file away, spreads everything and has a registered lab defect punishing anyone who mutates. One of you is wrong.</summary>
 
-Never, in the current tree — and this is a softer version of the same problem as
-4.1.
+Neither, and the reason is the one that matters for this section: what gets
+compared afterwards.
 
-`AuthProvider` re-renders only when `role` changes, because nothing above it in
-`App.tsx` re-renders. And when `role` changes, the value *must* change. So the
-memo's bail-out branch is unreachable.
+`createSlice` runs every case reducer inside Immer's `produce`, so `state` is not
+the state — it is a draft proxy. The assignments are *recorded*, not applied.
+What comes out the other side is a new object, structurally shared with the old
+one: the branches nothing touched keep their identity, the ones that changed do
+not. `quoteReducer` has no Immer around it, so its spreads are doing by hand
+exactly what `produce` does for the slice.
 
-Two things keep it from being pure cargo cult. First, it is correct-by-
-construction against a future where `AuthProvider` gains a second piece of state,
-or where `App` starts re-rendering — both of which turn a missing memo into a
-real bug that is hard to attribute. Second, `switchRole` is wrapped in
-`useCallback` for the same reason, and *that* one matters more: without it the
-value's identity would churn on every provider render regardless of the memo.
+The half that is load-bearing is the new identity, not the convenience.
+`react-redux` decides whether to re-render by running the selector again and
+comparing with `Object.is`. If a reducer genuinely mutated in place, before and
+after would be the same reference, every comparison would answer "unchanged",
+and **nothing would re-render**: the "Viewing as" select would not move,
+`RequireRole` would go on gating against the old role, and `/underwriting` would
+keep redirecting an underwriter to the dashboard. The state would be right, the
+store would be right, and only the screen would be wrong — which is the hardest
+class of bug to attribute, because every console inspection of the store agrees
+with you.
 
-The claim in the file's header — "every render of `AuthProvider` hands consumers
-a brand-new object" — is describing a general hazard, not something this app
-currently does. Say it that way rather than as a fact about this tree.
+That is the same bail-out that the `mutating-reducer` lab defect (W2-D3-02)
+demonstrates for `useReducer`, and the two files are written in opposite styles
+on purpose so the comparison is available: same mechanism, one library apart.
+
+The caveat to volunteer before it is asked: Immer's guarantee holds *inside*
+`createSlice` and `createReducer` and nowhere else. A mutation in a thunk body,
+in a selector's result function, or on an object read out of `getState()` is a
+real mutation with no draft under it. And within a case, mutate or return — a
+case that does both throws rather than silently picking one.
 </details>
 
 <details>
-<summary><b>4.3</b> — Why is <code>AuthContext</code> exported when the codebase's own convention is to hide context objects behind a guarded hook?</summary>
+<summary><b>4.3</b> — <code>useAppSelector</code> re-runs its selector after every dispatched action. <code>selectExposureByCustomer</code> runs <code>rateBook</code>. Why is <code>/underwriting</code> not re-pricing the book on every token refresh?</summary>
 
-Because `use()` needs the context object and `useAuth()` cannot be called
-conditionally.
+Because `createSelector` compares the *input*, and the input is one object
+reference that auth actions never touch.
 
-`PolicySummaryCard` reads the role only inside `if (policy.status === 'lapsed' ||
-policy.status === 'cancelled')`. `useAuth` wraps `useContext`, so it obeys the
-rules of hooks and must be called unconditionally at the top — which subscribes
-*every* policy card to auth, including the ~85% that are active and never render
-the reinstatement note. Flipping the role in the header would then re-render
-every card in the book to change nothing.
+`selectExposureByCustomer` takes a single input selector, `selectUser`. The users
+are `DEMO_USERS[role]`, module constants, so `state.auth.user` is referentially
+stable per role. `auth/login/pending`, `auth/login/fulfilled`, every
+`auth/refresh/*` and a `logout` all leave that reference alone, so the result
+function does not run and the previously computed array is handed back.
 
-`use()` has no such rule. Called inside the branch, it registers the context
-dependency only on renders that take the branch.
+Without the memo, two costs compound. The first is the recompute: the roll-up
+scopes the book by role and then runs `rateBook` over the survivors — the same
+convolution `PoliciesPage` wraps in a `useMemo` (1.1), which prints its own
+elapsed milliseconds. The second is subtler and is the one that would survive
+even if the derivation were cheap: an un-memoised roll-up returns a brand-new
+array of brand-new objects every run, so `Object.is` can never pass and
+`UnderwritingPage` re-renders after every action in the app while showing
+identical numbers.
 
-So `useAuth` stays the right call everywhere the read is unconditional — it keeps
-the missing-provider guard — and the raw context is exported for exactly the one
-call site that needs the conditional read. The export is a named exception with a
-reason attached in its own doc comment, not a hole in the convention.
+The proof is in the console and needs no special demo. Open `/underwriting`:
+`[compute] exposure roll-up` and `[rating] rateBook …` print once. Then run the
+`expire-token` drill and watch four or five auth actions go through the store —
+neither line prints again.
+
+The follow-up to volunteer: `selectRole` and `selectIsUnderwriter` sit beside it
+and are deliberately **not** memoised. They return a string and a boolean, and
+reference equality on a primitive already *is* value equality, so a memo cache in
+front of them would cost a closure and an array allocation to prevent nothing.
+That is 1.4's argument about `FilterStatus` (W3-D1-06) reaching the same
+conclusion in a different file, and "wrap every selector in `createSelector`" is
+the cargo-cult version of this one.
+
+The fragility to name before someone else does: the memo is only as stable as
+`state.auth.user`'s identity, and that identity is cheap here precisely because
+there is no real user table. The moment `user` is rebuilt from a login response,
+a fresh object arrives on every sign-in, the cache misses every time, and this
+file is defeated without a line of it changing.
 </details>
 
 <details>
@@ -1156,24 +1188,62 @@ Renders climb, real requests do not. Remove the cache and every `⤳` becomes a 
 </details>
 
 <details>
-<summary><b>10.3</b> — <code>use(AuthContext)</code> inside an <code>if</code>. What does that actually buy, quantified?</summary>
+<summary><b>10.3</b> — You deleted a conditional <code>use(AuthContext)</code> read in order to move auth into Redux. What did that buy, and what did it cost?</summary>
 
-It stops ~85% of policy cards from subscribing to auth at all.
+**⚠ WEAK SPOT — this is a matrix row that went to `[ ]`.** Take the cost first,
+and do not round it in either direction.
 
-`useAuth` wraps `useContext`, so it must be called unconditionally at the top of
-the component. That registers the fiber as an auth consumer permanently — for
-every policy, regardless of status. Flipping the role switcher in the header then
-re-renders every mounted `PolicySummaryCard`, including all the `active` ones,
-which never render the reinstatement note that the role actually affects.
+W3-D5-03 was `use(AuthContext)` inside `PolicySummaryCard`'s
+`lapsed`/`cancelled` branch — the app's only place a Context was read from
+inside an `if`, which is the one thing `useContext` cannot do. `AuthContext` no
+longer exists, and `useAppSelector` is a hook: it subscribes the fiber on every
+render whether the branch is taken or not. The row is recorded as not built.
 
-`use()` is not a hook and has no fixed call order to preserve. Called inside `if
-(policy.status === 'lapsed' || policy.status === 'cancelled')`, it registers the
-dependency only on renders that take the branch. An active policy's card is not
-an auth consumer, and a role switch does not touch it.
+What was actually lost in *behaviour* is one re-render, of one card, per role
+switch. That number is worth stating because the previous version of this answer
+inflated it — it claimed the unconditional read would re-render "every mounted
+`PolicySummaryCard`, including all the active ones", as though there were a book
+of them. There is one. It is the header of a single `/policies/:id`. What was
+lost in *coverage* is the whole mechanism, and that is the real cost.
 
-The rule `use()` still obeys, which is the follow-up: it must be called from a
-component or hook during render, and never after the component has returned.
-Conditional is fine; asynchronous is not.
+Both ways of keeping the row are worse than the gap:
+
+- `use(ReactReduxContext)` inside the branch. It compiles, and it returns the
+  store, so at a glance it is the same demo. But the store reference never
+  changes, which means it is not a subscription — the reinstatement note would be
+  computed on the render that took the branch and then never again, and switching
+  role would leave the wrong wording on screen. A demo that looks right, passes
+  review, and has silently stopped meaning anything is worse than an empty row.
+- Keeping `AuthContext` alive beside the slice purely to feed this branch. That
+  puts the role in two places, which is the exact thing the migration removed.
+
+Now the other half. What the store bought is the part Context structurally could
+not do, and there are two pieces of it.
+
+The first is the lifecycle. `loginThunk` and `refreshThunk` are
+`createAsyncThunk`s and all six of their lifecycle actions are handled in
+`extraReducers` with the builder callback, so the session has a `status` other
+code can read. A role switch now has a *duration* — the mock backend stamps the
+role into the token it issues (`at-3-underwriter`), so switching re-authenticates
+— and the "Viewing as" select renders all three states: disabled on `pending`,
+normal on `fulfilled`, `error` plus `helperText` on `rejected`. Handling only
+`fulfilled`, which is the usual shortcut, would leave that control live during
+the round trip, so a second switch could be fired mid-flight and which token the
+store kept would be decided by a race.
+
+The second is the reader that is not a component at all. The axios request
+interceptor reads `store.getState().auth.token` on every outgoing request. It
+runs outside React and cannot call `useContext`, which is precisely why
+`src/shared/http/tokenStore.ts` existed — a second home for the token, kept in
+step with the session by hand. `getState()` is a plain function call from
+anywhere, so that file was deleted and the session is one object again: React
+subscribes to it through `useAppSelector`, the transport reads it directly, and
+there is no copy to drift.
+
+The framing to use: this was a trade, not an upgrade. One demonstrable React 19
+mechanism was given up for a session that two independent readers can share, and
+the row it cost is recorded in `docs/coverage-matrix.md` § Known weak claims
+rather than rehomed onto a component invented to carry it.
 </details>
 
 <details>

@@ -1,8 +1,20 @@
 /**
  * WHY THIS EXISTS:
- *   The public surface of the axios stack, and the one place the instance is
- *   wired up: mock backend first, then interceptors, then the typed endpoints
- *   the app calls. Importing this module is what makes `http` usable.
+ *   The public surface of the axios stack, and where the instance is given its
+ *   transport: the mock backend, plus the typed endpoints the app calls.
+ *   Importing this module is what makes `http` reachable.
+ *
+ *   THE INTERCEPTORS ARE INSTALLED ONE LEVEL UP, in
+ *   `src/shared/store/index.ts`, and they have to be. They now dispatch the
+ *   auth slice's thunks and read the bearer token off the store, so installing
+ *   them needs a store — and the store needs `http` in order to be built,
+ *   which is this module. Calling `installInterceptors(http, store)` from here
+ *   would mean reading `store` while `src/shared/store/index.ts` was still
+ *   evaluating: a `ReferenceError` at import time under a bundler, and under
+ *   Vitest's transform something quieter and worse — a partially initialised
+ *   module whose exported function is `undefined`. Installing from the store,
+ *   after it exists, is the acyclic order. `main.tsx` imports the store, so it
+ *   still happens once, at module load, before React mounts.
  *
  * CONCEPTS: (barrel + composition root — the concepts live in the files below)
  *
@@ -16,23 +28,19 @@
  *   with no adapter, so its request leaves the app and 404s at the dev
  *   server, and no interceptor is registered to explain why.
  *
- *   Both installs are side effects at module load, on purpose. They must be
- *   done before the first request, and the first request can be fired by a
- *   component's effect on the very first frame — there is no later moment to
- *   hook into that is guaranteed to come first.
+ *   The mock backend install is a side effect at module load, on purpose. It
+ *   must be done before the first request, and the first request can be fired
+ *   by a component's effect on the very first frame — there is no later moment
+ *   to hook into that is guaranteed to come first.
  */
 
 import { http } from './client';
-import { installInterceptors } from './interceptors';
 import { installMockBackend } from './mockBackend';
 
 installMockBackend(http);
-installInterceptors(http);
 
 export { http, REQUEST_TIMEOUT_MS } from './client';
 export { ApiError, installInterceptors } from './interceptors';
 export { installMockBackend } from './mockBackend';
-export { getAccessToken, getRefreshToken, setTokens, clearTokens } from './tokenStore';
-export type { TokenPair } from './tokenStore';
 export { fetchClaimsForPolicy, submitClaim } from './endpoints';
 export type { ClaimDraft, SubmitClaimOptions } from './endpoints';

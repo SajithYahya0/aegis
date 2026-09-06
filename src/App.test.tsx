@@ -58,9 +58,12 @@
  */
 
 import { render, screen, type ByRoleOptions } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import App from './App';
+import { store } from './shared/store';
+import { QuoteProvider } from './shared/store/QuoteContext';
 import { ThemeModeProvider } from './shared/theme/ThemeModeProvider';
 
 /**
@@ -70,22 +73,44 @@ import { ThemeModeProvider } from './shared/theme/ThemeModeProvider';
 const CHUNK_TIMEOUT_MS = 10_000;
 
 /**
- * The provider stack mirrors `main.tsx`: `ThemeModeProvider` outside the
- * router, exactly where the real app mounts it. It is not scaffolding to keep
- * the suite quiet — a MUI surface rendered with no `ThemeProvider` above it
- * falls back to MUI's *default* theme, which has no custom `status` key, so
- * `StatusChip` on /dashboard reads `theme.palette.status[status].soft` off
- * `undefined` and throws. Nesting it inside `MemoryRouter` instead would still
- * pass here and still be wrong: it is the position above the router that keeps
- * the theme alive across navigations and reaches portalled content.
+ * The provider stack mirrors `main.tsx`, in the same order and for the same
+ * reasons — `Provider` → theme → router → `QuoteProvider`. None of it is
+ * scaffolding to keep the suite quiet:
+ *
+ *   • No `Provider`: `RequireRole` calls `useAppSelector` and react-redux
+ *     throws "could not find react-redux context value" before any route can
+ *     render, so every test fails at the same place with the same message and
+ *     none of them are about routing any more.
+ *
+ *   • No `ThemeModeProvider`: a MUI surface with no `ThemeProvider` above it
+ *     falls back to MUI's *default* theme, which has no custom `status` key,
+ *     so `StatusChip` on /dashboard reads `theme.palette.status[status].soft`
+ *     off `undefined` and throws. Nesting it inside `MemoryRouter` instead
+ *     would still pass here and still be wrong: it is the position above the
+ *     router that keeps the theme alive across navigations and reaches
+ *     portalled content.
+ *
+ *   • No `QuoteProvider`: `/quote`'s steps call `useQuote()`, whose guard
+ *     throws by design.
+ *
+ * The store is the app's singleton rather than a fresh one per test, because
+ * that is what `main.tsx` mounts and because the interceptor reads the same
+ * singleton — a per-test store here would leave the transport and the UI
+ * looking at two different sessions. Nothing in this file dispatches, so the
+ * role stays `agent` and the /underwriting redirect test still means what it
+ * says.
  */
 function renderAt(path: string): void {
   render(
-    <ThemeModeProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </ThemeModeProvider>,
+    <Provider store={store}>
+      <ThemeModeProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <QuoteProvider>
+            <App />
+          </QuoteProvider>
+        </MemoryRouter>
+      </ThemeModeProvider>
+    </Provider>,
   );
 }
 

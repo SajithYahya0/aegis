@@ -80,8 +80,6 @@ import {
   type LazyRoute,
 } from './shared/routes/lazyRoutes';
 import { RequireRole } from './shared/routes/RequireRole';
-import { AuthProvider } from './shared/store/AuthContext';
-import { QuoteProvider } from './shared/store/QuoteContext';
 
 interface BoundedRouteProps {
   label: string;
@@ -106,136 +104,136 @@ function BoundedRoute({ label, fallback, route }: BoundedRouteProps): ReactEleme
 
 export default function App(): ReactElement {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route element={<AppLayout />}>
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route
+          index
+          element={
+            <BoundedRoute
+              label="Dashboard"
+              fallback={<Skeleton variant="panel" rows={5} />}
+              route={DashboardRoute}
+            />
+          }
+        />
+
+        <Route
+          path="policies"
+          element={
+            <BoundedRoute
+              label="Policy book"
+              fallback={
+                <Skeleton variant="table" rows={10} columns={6} label="Loading policies" />
+              }
+              route={PoliciesRoute}
+            />
+          }
+        />
+
+        <Route
+          path="policies/:id"
+          element={
+            <BoundedRoute
+              label="Policy detail"
+              fallback={<Skeleton variant="card" fields={6} />}
+              route={PolicyDetailRoute}
+            />
+          }
+        >
           <Route
             index
             element={
               <BoundedRoute
-                label="Dashboard"
-                fallback={<Skeleton variant="panel" rows={5} />}
-                route={DashboardRoute}
-              />
-            }
-          />
-
-          <Route
-            path="policies"
-            element={
-              <BoundedRoute
-                label="Policy book"
+                label="Coverage"
                 fallback={
-                  <Skeleton variant="table" rows={10} columns={6} label="Loading policies" />
+                  <Skeleton variant="table" rows={4} columns={4} label="Loading coverage" />
                 }
-                route={PoliciesRoute}
+                route={PolicyCoverageRoute}
               />
             }
           />
-
           <Route
-            path="policies/:id"
+            path="claims"
             element={
               <BoundedRoute
-                label="Policy detail"
-                fallback={<Skeleton variant="card" fields={6} />}
-                route={PolicyDetailRoute}
-              />
-            }
-          >
-            <Route
-              index
-              element={
-                <BoundedRoute
-                  label="Coverage"
-                  fallback={
-                    <Skeleton variant="table" rows={4} columns={4} label="Loading coverage" />
-                  }
-                  route={PolicyCoverageRoute}
-                />
-              }
-            />
-            <Route
-              path="claims"
-              element={
-                <BoundedRoute
-                  label="Claims"
-                  fallback={
-                    <Skeleton variant="table" rows={4} columns={5} label="Loading claims" />
-                  }
-                  route={PolicyClaimsRoute}
-                />
-              }
-            />
-            <Route
-              path="documents"
-              element={
-                <BoundedRoute
-                  label="Documents"
-                  fallback={
-                    <Skeleton variant="table" rows={4} columns={4} label="Loading documents" />
-                  }
-                  route={PolicyDocumentsRoute}
-                />
-              }
-            />
-          </Route>
-
-          {/*
-            QuoteProvider stays OUTSIDE the Suspense boundary. Inside it, the
-            provider would unmount and remount alongside the fallback every
-            time the chunk suspends, and `initQuoteDraft` (W2-D3-03) would
-            re-run — silently discarding an in-progress draft.
-          */}
-          <Route
-            path="quote"
-            element={
-              <QuoteProvider>
-                <BoundedRoute
-                  label="Quote wizard"
-                  fallback={<Skeleton variant="panel" rows={6} />}
-                  route={QuoteWizardRoute}
-                />
-              </QuoteProvider>
-            }
-          />
-
-          <Route
-            path="claims/new"
-            element={
-              <BoundedRoute
-                label="Claim intake"
-                fallback={<Skeleton variant="panel" rows={4} />}
-                route={ClaimIntakeRoute}
+                label="Claims"
+                fallback={
+                  <Skeleton variant="table" rows={4} columns={5} label="Loading claims" />
+                }
+                route={PolicyClaimsRoute}
               />
             }
           />
-
           <Route
-            path="underwriting"
-            element={
-              <RequireRole role="underwriter">
-                <BoundedRoute
-                  label="Underwriting"
-                  fallback={<Skeleton variant="panel" rows={6} />}
-                  route={UnderwritingRoute}
-                />
-              </RequireRole>
-            }
-          />
-
-          <Route
-            path="*"
+            path="documents"
             element={
               <BoundedRoute
-                label="Not found"
-                fallback={<Skeleton variant="panel" rows={2} />}
-                route={NotFoundRoute}
+                label="Documents"
+                fallback={
+                  <Skeleton variant="table" rows={4} columns={4} label="Loading documents" />
+                }
+                route={PolicyDocumentsRoute}
               />
             }
           />
         </Route>
-      </Routes>
-    </AuthProvider>
+
+        {/*
+          QuoteProvider used to wrap this element, so that it sat OUTSIDE the
+          Suspense boundary — inside it, the provider would unmount and
+          remount alongside the fallback every time the chunk suspends, and
+          `initQuoteDraft` (W2-D3-03) would re-run, silently discarding an
+          in-progress draft. It now lives in `main.tsx` above the Router,
+          which satisfies that constraint the same way and one level further
+          out; see the provider-order note there for why it is mounted
+          beside the Redux `Provider` rather than on this route.
+        */}
+        <Route
+          path="quote"
+          element={
+            <BoundedRoute
+              label="Quote wizard"
+              fallback={<Skeleton variant="panel" rows={6} />}
+              route={QuoteWizardRoute}
+            />
+          }
+        />
+
+        <Route
+          path="claims/new"
+          element={
+            <BoundedRoute
+              label="Claim intake"
+              fallback={<Skeleton variant="panel" rows={4} />}
+              route={ClaimIntakeRoute}
+            />
+          }
+        />
+
+        <Route
+          path="underwriting"
+          element={
+            <RequireRole role="underwriter">
+              <BoundedRoute
+                label="Underwriting"
+                fallback={<Skeleton variant="panel" rows={6} />}
+                route={UnderwritingRoute}
+              />
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <BoundedRoute
+              label="Not found"
+              fallback={<Skeleton variant="panel" rows={2} />}
+              route={NotFoundRoute}
+            />
+          }
+        />
+      </Route>
+    </Routes>
   );
 }
