@@ -139,6 +139,7 @@ and produces one specific, explainable symptom — each one's registration in
 | Stale closure in an interval | W2-D1-06 | "Last logged" freezes at whatever count existed on mount while "Count" keeps climbing. |
 | Third-party risk feed outage | W3-D4-03 | Any policy's risk widget shows a red fallback with Retry; the rest of the page (header, coverage, tabs) keeps working around it. Retry genuinely re-requests (a second `[api] →` line) and fails again — the endpoint is down for good. |
 | Claim submission forced to fail | C-05 | Log a claim on any policy — it appears as "Submitting…", then rolls back and a toast reports the rejection. Off, the same row sticks. |
+| Expire the access token | W4-D3-04 | Open any policy's Claims tab — the claims still load, and the console shows why: a 401, `[auth] ↻ refreshing session`, one `POST /auth/refresh`, then `[http] ↻ replaying GET …` carrying the same `req-NNNN` id as the attempt that failed. Nothing on screen reports an error — one request took two round trips. Turn it on again and switch policies quickly: several requests hit the expired token and there is still exactly one refresh, because concurrent 401s join the in-flight one. |
 
 ---
 
