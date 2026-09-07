@@ -137,7 +137,6 @@ and produces one specific, explainable symptom — each one's registration in
 | Mutating reducer state | W2-D3-02 | `/quote` → Applicant → "Add insured party" does nothing at first (mutation defeats `Object.is`); switching steps and back makes *two* rows appear instead of one (StrictMode double-invoking the impure reducer). |
 | Object-literal effect dependency | W2-D1-05 | The demo's run counter climbs on its own, uncapped conceptually, capped at 500 here so the tab doesn't freeze. |
 | Stale closure in an interval | W2-D1-06 | "Last logged" freezes at whatever count existed on mount while "Count" keeps climbing. |
-| useEffect instead of useLayoutEffect | W3-D4-04 | On `/quote`, the sticky premium bar visibly starts at the top of the page and jumps down to its docked position a frame later. |
 | Third-party risk feed outage | W3-D4-03 | Any policy's risk widget shows a red fallback with Retry; the rest of the page (header, coverage, tabs) keeps working around it. Retry genuinely re-requests (a second `[api] →` line) and fails again — the endpoint is down for good. |
 | Claim submission forced to fail | C-05 | Log a claim on any policy — it appears as "Submitting…", then rolls back and a toast reports the rejection. Off, the same row sticks. |
 
