@@ -2,13 +2,19 @@
 
 A demo insurance back-office console built to demonstrate complete coverage
 of a React 19 curriculum (Weeks 1–3, plus a completeness tier of every other
-hook and API the reference material implies). See `docs/coverage-matrix.md`
-for the full concept-by-concept ledger, `docs/failure-modes.md` for what
-breaks without each piece, and `docs/render-counts.md` for measured proof of
-the memoisation story.
+hook and API the reference material implies). What the repo contains is the
+running app and its tests: ten routes under `src/routes/`, shared hooks,
+store, HTTP layer and components under `src/shared/`, and 47 tests in
+`*.test.ts(x)` files beside the code they cover.
 
-This is a competency-demonstration artifact, not a product — read
-`CLAUDE.md` before changing anything.
+Weeks 1–3 are hand-rolled on purpose — `useReducer`, `fetch` with
+`AbortSignal`, hand-written form state, CSS Modules — and Week 4 re-solves
+the same problems with MUI, axios, Redux Toolkit and react-hook-form on a
+separate set of routes. Both halves are alive at once so they can be compared;
+the mixed styling is the finished state, not a half-done migration. The
+[Known gaps](#known-gaps) section below records what is not demonstrable.
+
+This is a competency-demonstration artifact, not a product.
 
 ---
 
@@ -17,7 +23,7 @@ This is a competency-demonstration artifact, not a product — read
 ```
 npm install
 npm run dev        # Vite dev server
-npx vitest run      # full test suite (never --watch — see CLAUDE.md)
+npx vitest run      # full test suite (never --watch: unreliable in WebContainer)
 npm run typecheck   # tsc --noEmit
 npm run build        # tsc --noEmit && vite build
 ```
@@ -43,8 +49,9 @@ test files are `.test.ts(x)` only.
 | `*` | Not found | Catch-all. |
 
 Every route above `App.tsx`'s route table is `React.lazy` with its own
-`<Suspense>` and `<ErrorBoundary>` — see `docs/failure-modes.md` for
-W3-D3-01 through W3-D5-05.
+`<Suspense>` and `<ErrorBoundary>` — per route and per widget, never one
+boundary at the root, so a chunk that fails to load or a widget that throws
+takes down only its own region.
 
 ---
 
@@ -57,8 +64,12 @@ a reviewer.
 1. **Start on `/policies`.** Type in the search box. Point out the console:
    `[render] PolicyRow` lines do not repeat for rows still on screen —
    `React.memo` (W3-D1-01) plus the `useMemo`-wrapped `rateBook`
-   (W3-D1-03). `docs/render-counts.md` has the exact measured numbers for
-   this exact interaction.
+   (W3-D1-03). Measured on 140 rows: a keystroke that leaves the filtered set
+   unchanged logs **zero** `PolicyRow` renders, while the deliberately
+   un-memoised `FilterStatus` (W3-D1-06) renders twice on that same
+   keystroke; `[rating] rateBook 140 policies in 25.3ms` prints **once** for
+   the whole session. Widening the filter back out re-renders only the 139
+   rows that actually returned.
 2. **Switch to "Exposure by customer" while typing.** The input keeps
    responding — `useTransition` (C-02) — and "Switching…" shows while the
    new view renders in the background.
@@ -117,9 +128,8 @@ a reviewer.
 ## Lab toggles
 
 Dev-only panel at the bottom of every route. Each toggle is off by default
-and produces one specific, explainable symptom — full detail (including why
-each one is built the way it is) is in `docs/failure-modes.md` and
-`src/shared/labs/registry.ts`.
+and produces one specific, explainable symptom — each one's registration in
+`src/shared/labs/registry.ts` says why it is built the way it is.
 
 | Toggle | Matrix ID | Symptom when enabled |
 |---|---|---|
@@ -142,8 +152,7 @@ each one is built the way it is) is in `docs/failure-modes.md` and
   two paths side by side: an abortable `fetch*` path for `useEffect` (Claims
   tab) and a cached-promise path for `use()` (policy summary, risk widget).
 - `src/shared/labs/` holds every deliberate defect, behind a runtime
-  toggle, documented in `docs/failure-modes.md`. Never "fixed" — they're the
-  point.
+  toggle that is off by default. Never "fixed" — they're the point.
 
 ---
 
@@ -152,8 +161,9 @@ each one is built the way it is) is in `docs/failure-modes.md` and
 Five rows of the coverage ledger are not solid, and none of them is fixed by
 adding a feature. Four are correct, reachable code whose effect cannot be
 observed in this app; the fifth is a concept the app has no honest home for.
-`CLAUDE.md` ranks a contrived usage as worse than an honest gap, so inert is
-recorded as inert.
+A usage invented to carry a checklist row is worth less than an admitted gap —
+it survives the question "why is this here?" only as far as the checklist — so
+inert is recorded as inert rather than papered over.
 
 **Not built:**
 
@@ -176,9 +186,11 @@ recorded as inert.
 
 - **`memo` with a custom comparator.** The premium badge's comparator can never
   run: its only parent is itself memoised on a referentially stable premium, and
-  a parent that bails out never renders its child. If it did run it would lose
-  anyway — two `formatCurrency` calls to skip a render that costs one.
-  `docs/render-counts.md` has the measurement.
+  a parent that bails out never renders its child. The measurement shows it:
+  the badge's render count tracks the row's exactly, 140 on mount and zero on
+  every keystroke that leaves the filtered set alone. If the comparator did run
+  it would lose anyway — two `formatCurrency` calls to skip a render that
+  costs one.
 - **Context split into state and dispatch.** The split is correct and saves zero
   renders here, because every wizard step reads both halves through the same
   `useQuote()` hook, and the wizard page renders the steps as children of a

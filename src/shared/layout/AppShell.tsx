@@ -255,8 +255,11 @@ export function AppShell({ children }: { children: ReactNode }): ReactElement {
       {/*
         The content region is deliberately unstyled beyond spacing and the
         scroll container. Half the routes below it are CSS Modules surfaces and
-        stay that way — the chrome is MUI, the content is whatever the route
-        is, and that line is the boundary `CLAUDE.md` asks not to blur.
+        stay that way: the chrome is MUI, the content is whatever the route is.
+        Keep that boundary — no MUI components inside a CSS Modules route, no
+        CSS Modules inside a MUI one. The two are kept side by side so they can
+        be compared against each other, and styling the content region here is
+        how one starts leaking into the other.
       */}
       <Box
         component="main"
