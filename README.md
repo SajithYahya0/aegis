@@ -144,3 +144,84 @@ each one is built the way it is) is in `docs/failure-modes.md` and
 - `src/shared/labs/` holds every deliberate defect, behind a runtime
   toggle, documented in `docs/failure-modes.md`. Never "fixed" — they're the
   point.
+
+---
+
+## Known gaps
+
+Five rows of the coverage ledger are not solid, and none of them is fixed by
+adding a feature. Four are correct, reachable code whose effect cannot be
+observed in this app; the fifth is a concept the app has no honest home for.
+`CLAUDE.md` ranks a contrived usage as worse than an honest gap, so inert is
+recorded as inert.
+
+**Not built:**
+
+- **`useLayoutEffect` vs `useEffect`.** It lived in the quote wizard's sticky
+  premium bar, measuring the header so the bar could dock beneath it. When the
+  bar moved from `position: fixed` to `position: sticky`, the measured offset
+  stopped being merely invisible and became actively wrong — under `sticky`,
+  `top` is the viewport offset the bar clamps at, so the header's ~200px pinned
+  it a fifth of the way down the screen over the fields scrolling beneath. The
+  measurement and both effect branches were deleted rather than left in the tree
+  as dead code, and nothing else in this app must read a rendered dimension
+  before paint.
+- **`use()` with Context, read conditionally.** The policy summary card read the
+  role with `use(AuthContext)` inside its lapsed/cancelled branch; the Redux
+  migration deleted `AuthContext`, and `useAppSelector` is a hook, so it cannot
+  be called inside a branch. Reading the store through context instead would
+  compile and then go stale, because the store reference never changes.
+
+**Qualified — real, correct, and inert:**
+
+- **`memo` with a custom comparator.** The premium badge's comparator can never
+  run: its only parent is itself memoised on a referentially stable premium, and
+  a parent that bails out never renders its child. If it did run it would lose
+  anyway — two `formatCurrency` calls to skip a render that costs one.
+  `docs/render-counts.md` has the measurement.
+- **Context split into state and dispatch.** The split is correct and saves zero
+  renders here, because every wizard step reads both halves through the same
+  `useQuote()` hook, and the wizard page renders the steps as children of a
+  component that reads state — so a state change re-renders them regardless.
+- **`useFormStatus`.** The hook is real, correct, reachable, and observable
+  nowhere. **This got worse this week, and this repo did it.** Its one
+  observable call site was the claim intake wizard, whose submit is now
+  `handleSubmit` plus `formState.isSubmitting` — and that swap was not optional,
+  because `useFormStatus().pending` is only ever true during a React form
+  action, so a form driven by `onSubmit` reports `false` forever no matter where
+  the button sits. What remains is the claims-tab form, whose pending state was
+  already unobservable for an unrelated reason: the handler closes the modal
+  before its `await`, so the form unmounts before `pending` can render. That is
+  not fixed by reordering — closing immediately is the correct behaviour there,
+  because the optimistic row in the table below is the feedback. The two
+  requirements are mutually exclusive and the react-hook-form path wins.
+
+---
+
+## Bundle
+
+Three `vite build` measurements, same machine and config, sizes as reported by
+Vite. Two of them are the cost of a static import, and the third is what
+splitting looks like when it works.
+
+- **Entry 272.06 → 359.24 kB when the theme landed.** The theme provider is a
+  static import in `main.tsx`, so MUI's styling engine, `CssBaseline` and
+  Emotion are all reachable from the entry and cannot be lazily chunked. That is
+  not tidied away by lazy-loading the provider: the theme must exist before the
+  first route renders, or the first paint of every MUI surface is either
+  unthemed or a suspended fallback.
+- **Entry 359.24 → 527.37 kB when the app shell landed.** Same mechanism, read
+  the other way: the shell is imported statically by the layout, so its
+  `AppBar`, `Drawer`, `TextField`, `Tooltip`, `List` and icons are reachable
+  from the entry too. Nothing here is fixable by lazy-loading the shell either —
+  it renders on every route, above the outlet, so deferring it would replace the
+  first paint of every page with a fallback. The marginal cost did fall, which
+  was the prediction: the dashboard chunk gained a table, four cards and a grid
+  container and got *smaller*, because the primitives underneath were hoisted
+  into the shared shell.
+- **Entry +2.91 kB for `react-hook-form`, Zod and the resolver.** All three are
+  reachable only from lazy chunks — nothing above the router imports them — so
+  Rollup put Zod in its own shared chunk that two lazy routes pull in and the
+  entry does not, and the wizard chunk went 6.38 → 50.41 kB. That is
+  route-level splitting doing real work, and it is the exact opposite of what
+  happened when MUI arrived.

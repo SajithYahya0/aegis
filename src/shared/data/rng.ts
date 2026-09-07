@@ -1,23 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   A seeded pseudo-random generator plus the sampling helpers the seed builder
- *   needs. Same seed in, same policy book out, on every reload and in every
- *   test run.
- *
- * CONCEPTS: W3-D2-06, W3-D2-07
- *
- * WITHOUT THIS:
- *   The seed data would use `Math.random()` at module scope, so the 120-policy
- *   book would be different on every page load. Concretely that breaks three
- *   things. (1) `PolicyList.test.tsx` (W3-D2-07) cannot assert "filtering to
- *   `lapsed` leaves 14 rows" — the number changes per run, so the test is
- *   either deleted or weakened to `expect(rows.length).toBeGreaterThan(0)`,
- *   which passes even when the filter is broken. (2) The render-count table in
- *   docs/render-counts.md (C-12) compares before/after numbers that would be
- *   measured against two different datasets. (3) Reloading the page while
- *   demonstrating memoisation silently swaps the data under the reviewer.
- */
-
 export type Rng = () => number;
 
 /**

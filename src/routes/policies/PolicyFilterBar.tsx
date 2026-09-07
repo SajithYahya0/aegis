@@ -1,21 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The controlled filter controls for /policies: free-text search, status,
- *   type, and an "expiring soon" toggle. Every input's value comes from
- *   `usePolicyFilters` and every change goes through its setters — nothing
- *   here holds its own copy of the filter state.
- *
- * CONCEPTS: W1-10, W1-11
- *
- * WITHOUT THIS:
- *   An uncontrolled `<input defaultValue=...>` would only ever show what the
- *   agent typed in *this* mount. Deep-linking to `/policies?status=lapsed`,
- *   or navigating back from a policy opened via "Recently viewed", would
- *   leave the status dropdown showing "All statuses" while the table
- *   underneath is actually filtered — the visible controls and the applied
- *   filter would disagree with each other.
- */
-
 import type { ChangeEvent, ReactElement } from 'react';
 import { POLICY_STATUS_LABEL, POLICY_TYPE_LABEL } from '../../shared/format';
 import type { PolicyStatus, PolicyType } from '../../shared/types';

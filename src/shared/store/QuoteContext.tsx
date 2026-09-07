@@ -1,38 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The quote wizard's entire state machine. A `useReducer` rather than a
- *   handful of `useState` calls because the steps are not independent —
- *   moving from "risk" to "coverage" depends on `type` chosen in "applicant",
- *   and a single `dispatch` keeps every transition auditable in one switch
- *   instead of scattered across four components' worth of setters.
- *
- *   The context is split in two — `QuoteStateContext` carries the `Quote`,
- *   `QuoteDispatchContext` carries only `dispatch` — because `dispatch` from
- *   `useReducer` is referentially stable for the life of the component. A
- *   step component that only needs to fire actions (say, a coverage
- *   checkbox) can subscribe to `QuoteDispatchContext` alone and never
- *   re-render when the quote state changes elsewhere in the wizard.
- *
- * CONCEPTS: W2-D2-06, W2-D3-01, W2-D3-03, W2-D3-04, W3-D1-04
- *
- * WITHOUT THIS:
- *   Un-split: if state and dispatch travelled in one context value, every
- *   consumer of that value — including a step that only ever calls
- *   `dispatch({ type: 'NEXT_STEP' })` — would re-render on every keystroke in
- *   every other step, because the provider value's identity changes whenever
- *   `state` does. `React.memo` on a step component would be defeated by its
- *   own provider.
- *
- *   No lazy init: `useReducer(quoteReducer, createBlankQuote())` calls
- *   `createBlankQuote()` — and would, if it read localStorage itself, read it
- *   — on *every* render of `QuoteProvider`, not just the first. The lazy
- *   third-argument form only ever runs once, on mount, which is the only
- *   place a draft should be rehydrated from storage.
- *
- *   No draft persistence: refreshing mid-wizard (or StackBlitz's dev server
- *   restarting) loses every field the agent typed, with no warning.
- */
-
 import {
   createContext,
   useContext,

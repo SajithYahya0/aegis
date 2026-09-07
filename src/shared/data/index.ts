@@ -1,25 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The single source of truth for the demo book. Builds it once at module
- *   load and exposes both the arrays and the lookup indexes every route needs.
- *
- * CONCEPTS: W1-08, W3-D1-03
- *
- * WITHOUT THIS:
- *   Two things go wrong. (1) If each route imported `buildBook()` and called
- *   it, /policies and /policies/:id would each hold a *different* object graph
- *   for the same policy id. Clicking a row would navigate to a detail page
- *   showing a different premium, and `React.memo` on `PolicyRow` (W3-D1-01)
- *   would never hit — its `policy` prop would be a fresh object identity on
- *   every mount, so the memo comparison fails every time and the render log
- *   shows 120 re-renders per keystroke, i.e. the exact opposite of the point
- *   being demonstrated. (2) Without the `Map` indexes, resolving a policy's
- *   customer inside a 120-row render is `customers.find(...)` per row — an
- *   O(rows × customers) scan on every keystroke, which makes the list feel
- *   slow for a reason that has nothing to do with the concept under test and
- *   muddies the useDeferredValue story.
- */
-
 import type { Claim, Customer, Policy, PolicyDocument } from '../types';
 import { buildBook } from './seed';
 

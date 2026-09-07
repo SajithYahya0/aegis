@@ -1,29 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Pins the two claims about the theme that are easy to assert and easy to
- *   get wrong: that a choice survives a reload, and that the MUI theme the
- *   provider builds actually carries the custom `status` palette the rest of
- *   Week 4 reads.
- *
- * CONCEPTS: W4-D2-03, W4-D2-01, W3-D2-06
- *
- * WITHOUT THIS:
- *   The persistence claim is only ever checked by hand — pick Dark, reload,
- *   look. That check passes for the wrong reason more often than it fails: a
- *   provider that never writes to storage still *looks* correct for the whole
- *   session, because the in-memory state carries it. The failure appears one
- *   reload later, in a session nobody is watching. The remount below is that
- *   reload: a fresh provider, no interaction, reading only what the previous
- *   one left on disk.
- *
- *   The palette claim is the one the type system cannot make. `mui-augment.d.ts`
- *   guarantees `palette.status` is *declared*; nothing guarantees
- *   `createAegisTheme` actually *populates* it, or that the mode branch picks
- *   the dark values. Getting that wrong renders every status badge in the
- *   wrong colour — or, if the key is missing entirely, throws inside
- *   `StatusChip` on a surface that had been working.
- */
-
 import { render, screen, cleanup } from '@testing-library/react';
 import { act } from 'react';
 import { useTheme } from '@mui/material/styles';

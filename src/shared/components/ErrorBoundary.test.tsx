@@ -1,26 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Pins the one behaviour in `ErrorBoundary` that is easy to get wrong and
- *   impossible to eyeball: that Retry actually remounts the children, and that
- *   `onRetry` runs before that remount rather than after it. Both mistakes
- *   leave a boundary that looks completely correct in manual testing — the
- *   fallback appears, the button is clickable, the error clears — while
- *   silently recovering nothing.
- *
- * CONCEPTS: W3-D4-01, W3-D4-02, W3-D2-07
- *
- * WITHOUT THIS:
- *   The regression is a one-word edit. Change
- *   `<Fragment key={attempt}>{children}</Fragment>` to `{children}` and the
- *   boundary still passes every manual check, because the difference only
- *   shows up when the child would throw *again* on re-render — which is
- *   exactly the case Retry exists for, and exactly what `api.ts`'s promise
- *   cache and `React.lazy`'s module registry both produce. The third test
- *   below models the promise cache directly: the child keeps throwing until
- *   something evicts, so a retry that does not remount, or that evicts too
- *   late, leaves the fallback on screen and fails.
- */
-
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -1,17 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The registered demonstration of the object-literal effect dependency
- *   pitfall (W2-D1-05) — an effect that never sees a "stable" dependency
- *   because the value in its deps array is a fresh object every render.
- *
- * CONCEPTS: W2-D1-05
- *
- * WITHOUT THIS:
- *   The matrix requires this pitfall to be demonstrated, not just named. A
- *   paragraph explaining "object literals in deps cause infinite loops" is
- *   not evidence; a component that actually loops when the toggle is on is.
- */
-
 import { useEffect, useState, type ReactElement } from 'react';
 import { useLabFlag } from './useLabFlag';
 

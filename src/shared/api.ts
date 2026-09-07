@@ -1,35 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The only async boundary in the app. Serves the in-memory book behind
- *   simulated 400–900ms latency, and does it twice over, on purpose:
- *
- *     • `fetch*(…, signal)` — abortable, for the `useEffect` + `AbortController`
- *       path (W2-D1-01…03). Call it again and it really goes again.
- *     • `getPolicyResource(id)` — a cached promise per id, for the `use()` +
- *       `<Suspense>` path (W3-D5-01, W3-D5-02). Call it again and you get the
- *       same promise object back.
- *
- * CONCEPTS: W2-D1-01, W2-D1-02, W2-D1-03, W3-D5-01, W3-D5-02, W3-D5-04, W3-D4-01
- *
- * WITHOUT THIS:
- *   Two separate disasters, one per path.
- *
- *   No `AbortSignal`: clicking POL-00007 then POL-00012 before the first load
- *   lands leaves two in-flight requests racing. The slower one resolves last
- *   and calls `setClaims` with POL-00007's claims while the URL says
- *   POL-00012 — the user sees another customer's claims under this customer's
- *   header, with no error anywhere. Aborting in the effect's cleanup is what
- *   stops that.
- *
- *   No promise cache: `use(fetchPolicy(id))` calls `fetchPolicy` during render.
- *   Suspense throws that promise, React re-renders when it settles, render runs
- *   again, `fetchPolicy` is called *again*, a new promise is thrown, and the
- *   component suspends forever in an infinite fetch loop. `use()` is only safe
- *   against a promise that is stable across renders, which is what the cache
- *   provides. The cache also memoises *rejections*, which is why the error
- *   boundary's retry must evict the entry — see `clearPolicyResource`.
- */
-
 import {
   claims as allClaims,
   claimsByPolicyId,

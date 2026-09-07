@@ -1,23 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The product catalogue: which coverage lines exist per policy type, and the
- *   actuarial parameters each line carries (claim frequency, severity as a
- *   fraction of its limit, limit and deductible as fractions of sum insured).
- *   Both the seed builder and the quote wizard build coverages from here.
- *
- * CONCEPTS: W1-08
- *
- * WITHOUT THIS:
- *   The rating engine would need a hard-coded rate per policy type, so every
- *   motor policy with the same sum insured would price identically regardless
- *   of whether zero-depreciation was bought. The premium column on /policies
- *   would then show four distinct values across 120 rows, and the useMemo over
- *   `rateBook` (W3-D1-03) would look pointless because there is visibly
- *   nothing being computed. It would also give the quote wizard's coverage
- *   step nothing to render, and give `key={coverage.code}` (W1-08) no stable
- *   identity to key on.
- */
-
 import type { ClaimType, PolicyType } from '../types';
 
 export interface CatalogueEntry {

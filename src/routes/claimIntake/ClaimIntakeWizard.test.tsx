@@ -1,33 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   `claimSchema.test.ts` proves the rules are right. This proves the *gate* is
- *   wired to them — that `trigger(STEP_FIELDS[step])` runs on Continue, that a
- *   failure keeps the wizard on its current step, and that the message the
- *   agent sees is the schema's own words rather than one written in the
- *   component.
- *
- *   Those are two genuinely different failures. A correct schema behind a step
- *   button that never calls it produces a wizard that validates nothing until
- *   the final submit and then reports errors for fields three screens back —
- *   and every assertion in `claimSchema.test.ts` still passes.
- *
- * CONCEPTS: W4-D5-01, W4-D5-03, W3-D2-07
- *
- * WITHOUT THIS:
- *   The per-step gate is asserted by nothing. `App.test.tsx` deliberately
- *   checks that this component is *absent* — it is the closed half of the
- *   code-split proof — so before this file the wizard's own behaviour had no
- *   test at all, and the only thing standing between a broken step machine and
- *   a release was somebody opening the dialog by hand.
- *
- *   `fireEvent` rather than `@testing-library/user-event`: the second is not in
- *   `CLAUDE.md`'s pinned dependency list, and what is being asserted here is
- *   what happens after a click lands — not how faithfully the click was
- *   simulated. Where that distinction would matter (hovering to preload a
- *   chunk, typing into a debounced box) this repo already uses `fireEvent` too;
- *   see `lazyRoutes.test.tsx`.
- */
-
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';

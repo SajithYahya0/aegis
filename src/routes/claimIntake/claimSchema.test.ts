@@ -1,27 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Pins the two rules in `claimSchema.ts` that cannot be read off the field
- *   definitions — the cross-field amount check and Zod's ordering around it —
- *   and the one behaviour the wizard's per-step gate depends on: that the
- *   cross-field issue is reported *at `amount`* rather than at the object root.
- *
- *   This is the half of the react-hook-form migration that the old wizard
- *   could not have: the rules used to be `if` statements inside a component,
- *   so testing "a claim cannot exceed the sum insured" meant mounting the
- *   dialog and driving it through two steps of UI. Extracting them into a
- *   schema made them a pure function of a draft.
- *
- * CONCEPTS: W4-D5-02, W3-D2-07
- *
- * WITHOUT THIS:
- *   The `path: ['amount']` on the `superRefine` issue looks like a detail and
- *   is not: drop it and the issue lands on the form root, `trigger(['amount',
- *   …])` in the wizard's step gate stops seeing it, and an over-limit claim
- *   walks past the Incident step to the review screen. Nothing else in the
- *   suite would notice — the schema still rejects the draft, just one step too
- *   late to be fixed where it was entered.
- */
-
 import { describe, expect, it } from 'vitest';
 import { policies } from '../../shared/data';
 import { EMPTY_CLAIM_DRAFT, claimSchema, type ClaimDraftValues } from './claimSchema';

@@ -1,18 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   A short list of policies the agent has opened recently from /policies,
- *   persisted via `useLocalStorage` so it survives a reload or a StackBlitz
- *   dev-server restart, unlike plain component state.
- *
- * CONCEPTS: W1-08
- *
- * WITHOUT THIS:
- *   The list would live in `useState` inside `PoliciesPage` and reset to
- *   empty on every reload — the exact "was just looking at these three
- *   policies" context it exists to preserve would be gone the moment the
- *   agent's browser tab refreshes.
- */
-
 import type { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { policiesById } from '../../shared/data';

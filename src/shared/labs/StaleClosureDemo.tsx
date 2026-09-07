@@ -1,18 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The registered demonstration of a stale closure inside an interval
- *   (W2-D1-06) — the classic case where an effect's cleanup is correct but
- *   its dependency array is not, so the callback keeps referencing the value
- *   from the render that created it.
- *
- * CONCEPTS: W2-D1-06
- *
- * WITHOUT THIS:
- *   Nothing in the app otherwise has a long-lived interval reading component
- *   state, so this pitfall would have no live counterpart to point at —
- *   just a claim in prose that the reviewer has to take on faith.
- */
-
 import { useEffect, useState, type ReactElement } from 'react';
 import { useLabFlag } from './useLabFlag';
 

@@ -1,28 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The second view of the policy book: the same filtered policies rolled up
- *   per customer, so an agent can see aggregate exposure to one household
- *   rather than a flat list of contracts. It exists as a genuinely different
- *   render of the same data — a different component subtree, not a re-sort of
- *   the same rows — which is what makes switching to it cost enough for
- *   `useTransition` (C-02) to be worth its complexity.
- *
- * CONCEPTS: (the tab-switch cost this view creates is what C-02 covers — see
- *   PoliciesPage; W1-08 keys are per customer id here)
- *
- * WITHOUT THIS:
- *   The tab strip would have one tab, and `useTransition` in `PoliciesPage`
- *   would be wrapping a state change nothing observes — exactly the contrived
- *   usage CLAUDE.md rules out. A transition is only defensible if the render
- *   it defers is big enough to drop a frame, and "re-render the same table
- *   with the rows in a different order" is not.
- *
- *   The roll-up is memoised on `policies` and `premiumsById`: without that,
- *   the grouping pass would re-run on every keystroke that reaches this
- *   component, including the ones that only changed `rawQuery` and left
- *   `filtered` alone.
- */
-
 import { useMemo, type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatPercent } from '../../shared/format';

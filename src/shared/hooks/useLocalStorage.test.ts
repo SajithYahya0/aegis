@@ -1,18 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Proves the three things the header promises: it reads an existing value
- *   on mount, it survives corrupted JSON instead of throwing, and it writes
- *   updates back so a later mount reading the same key sees them.
- *
- * CONCEPTS: W3-D2-06
- *
- * WITHOUT THIS:
- *   The JSON `try/catch` and the lazy initialiser both look right on a code
- *   read and only actually break against real `localStorage` — the
- *   corrupted-value case in particular has no reliable way to trigger by
- *   clicking through the UI.
- */
-
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useLocalStorage } from './useLocalStorage';

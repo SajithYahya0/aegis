@@ -1,19 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Proves `useDebounce` actually waits `delayMs` of silence before adopting
- *   a new value, and that a value change before the timer fires restarts
- *   the wait rather than queuing two updates.
- *
- * CONCEPTS: W3-D2-06
- *
- * WITHOUT THIS:
- *   A cleanup bug — the old timer not being cleared before a new one is set
- *   — would still make the hook "work" for a single slow typist and only
- *   show up as a flurry of extra `setSearchParams` calls under fast typing,
- *   which is exactly the case fake timers can force deterministically and a
- *   human clicking through the UI cannot reliably reproduce.
- */
-
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDebounce } from './useDebounce';

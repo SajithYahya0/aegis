@@ -1,21 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The registered demonstration of a rules-of-hooks violation (W3-D2-01).
- *   Lives inside `src/shared/labs` rather than inside a real feature
- *   component so that the defect is opt-in and contained — nobody has to read
- *   a broken `if (someCondition) useState(...)` branch inside `QuoteWizardPage`
- *   to understand the wizard.
- *
- * CONCEPTS: W3-D2-01
- *
- * WITHOUT THIS:
- *   The matrix asks for the violation to be "demonstrated", not just
- *   described. Without a live component that actually calls a hook
- *   conditionally, the only evidence for W3-D2-01 would be a paragraph in
- *   `docs/failure-modes.md` — which is exactly the kind of "stubbed in a
- *   comment" the prime directive rules out.
- */
-
 import { useState, type ReactElement } from 'react';
 import { useLabFlag } from './useLabFlag';
 

@@ -1,25 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Module-level `Intl` formatters plus the display helpers every table cell
- *   uses. Constructed once, at import, and reused for the life of the session.
- *
- * CONCEPTS: W3-D1-02, W3-D1-03
- *
- * WITHOUT THIS:
- *   `new Intl.NumberFormat(...)` is one of the most expensive constructors in
- *   the browser — it resolves a locale and builds a pattern each time. Calling
- *   it inline in a cell means one construction per cell per render: 130 rows ×
- *   3 currency columns is ~390 constructions on every keystroke in the search
- *   box, which costs more than the rating engine it is displaying and would
- *   wrongly make `rateBook` look like the bottleneck.
- *
- *   `formatCurrency` is also load-bearing for `PremiumBadge`'s custom memo
- *   comparator (W3-D1-02): the comparator compares the *formatted* string, so
- *   a premium that moves from ₹18,442.31 to ₹18,442.44 does not re-render a
- *   badge that would display "₹18,442" either way. That only works if there is
- *   exactly one definition of what "formatted" means.
- */
-
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import type { ClaimStatus, PolicyStatus, PolicyType } from './types';
 

@@ -1,20 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Renders the filtered policy table. Deliberately NOT memoised itself —
- *   only its `PolicyRow` children are — because this component's own job
- *   (mapping an array to `<PolicyRow>` elements) is cheap regardless of how
- *   often it runs; the expensive part is one level down, per row, which is
- *   exactly where `React.memo` is applied instead.
- *
- * CONCEPTS: W1-08, W1-09, W3-D2-07
- *
- * WITHOUT THIS:
- *   No early return for the empty case: an empty `<tbody>` under a full
- *   `<thead>` renders a table that looks broken rather than a clear "no
- *   matches" message — an agent who has over-filtered has no way to tell
- *   from a blank table whether the filters or the app are at fault.
- */
-
 import type { ReactElement } from 'react';
 import type { PremiumBreakdown } from '../../shared/rating';
 import type { Customer, Policy } from '../../shared/types';

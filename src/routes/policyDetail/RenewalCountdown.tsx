@@ -1,25 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The presentational half of the renewal countdown on `/policies/:id` — all
- *   the interval/ref machinery lives in `useRenewalCountdown`, this component
- *   just renders what it returns and shows the idle-session flag alongside
- *   it, since both come from the same hook and the same underlying interval.
- *
- *   It renders **days only**. The hook still returns hours/minutes/seconds,
- *   but policies renew years out, so a full `3962d 13h 11m 13s` readout is a
- *   wall of digits where three of the four fields are never the reason anyone
- *   looked at the bar.
- *
- * CONCEPTS: (consumer of useRenewalCountdown — see that hook for W2-D1-04, W2-D2-02)
- *
- * WITHOUT THIS:
- *   `useRenewalCountdown` would export a hook nothing in the app calls, and
- *   "renewal countdown timer teardown" (W2-D1-04) would have no mount/unmount
- *   cycle to actually exercise — the interval would only ever be provable by
- *   reading the hook's source, not by watching it start and stop as the
- *   agent navigates to and away from a policy.
- */
-
 import type { ReactElement } from 'react';
 import { useRenewalCountdown } from '../../shared/hooks/useRenewalCountdown';
 import { formatNumber } from '../../shared/format';

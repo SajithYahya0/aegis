@@ -1,35 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Pins the one claim in the code-splitting story that was asserted for two
- *   phases and was false: that the error boundary's Retry recovers a route
- *   whose chunk failed to download.
- *
- *   It did not. `React.lazy` records a rejected import on a payload object
- *   hanging off the lazy component — module scope, not fiber scope — so the
- *   boundary's `key` bump discarded the fiber and read the same rejection
- *   straight back. A probe recorded one import attempt before Retry and one
- *   after: the loader was never called again, and the fallback never cleared.
- *   `splitChunk`'s `reset()` is the fix, and this file is what stops it
- *   regressing.
- *
- * CONCEPTS: W3-D3-01, W3-D3-02, W3-D4-02, W3-D2-07
- *
- * WITHOUT THIS:
- *   The regression is silent and it is a one-word edit in either of two files.
- *   Drop `onRetry` from `App.tsx`'s `BoundedRoute`, or make `reset()` clear
- *   `pending` without re-creating the lazy component, and every visible
- *   behaviour is unchanged — the fallback appears, the button is clickable, the
- *   console logs a retry — while nothing recovers. That is exactly the state
- *   this repo shipped in, and reading the code did not catch it; only counting
- *   the loader's calls did. So this test counts them.
- *
- *   The third assertion is the one that matters most and is the easiest to omit:
- *   `reset()` must re-create the lazy component, not just null the memoised
- *   promise. Clearing `pending` alone leaves the rejected payload in place, so
- *   the loader is never re-entered — the counter stays put and the test fails on
- *   `loaderCalls`, not on the visible output.
- */
-
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Suspense, type ComponentType, type ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

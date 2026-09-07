@@ -1,28 +1,3 @@
-/*
- * WHY THIS EXISTS:
- *   The reset, the design tokens, and the base element styles. This is the ONLY
- *   global stylesheet in the app — everything else is a `*.module.css` beside
- *   the component that owns it.
- *
- * CONCEPTS: W1-12
- *
- * WITHOUT THIS:
- *   CSS Modules scope class names, not element selectors and not tokens. With
- *   no global layer, every module would have to restate `box-sizing`, the font
- *   stack and its own copy of the status palette — and the moment two modules
- *   disagree about what `--status-lapsed` means, the same status renders amber
- *   on the list and red on the detail page. Tokens live here precisely because
- *   they must NOT be scoped.
- *
- * CONVENTIONS for the *.module.css files:
- *   - One module per component, named after it: `PolicyRow.module.css`.
- *   - Class names are camelCase, so `styles.statusBadge` needs no bracket
- *     access.
- *   - Modules read tokens from here; they never hard-code a hex value.
- *   - Conditional classes are composed at the call site with a small join, and
- *     variant classes use `composes:` so the base rules are not duplicated.
- */
-
 /* -------------------------------------------------------------------------- */
 /* Reset                                                                      */
 /* -------------------------------------------------------------------------- */

@@ -1,29 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   `/underwriting` is the one route no other test can reach. `App.test.tsx`
- *   walks the route table as the default `agent`, so its assertion about this
- *   page is the *negative* one — that `RequireRole` turns an agent away — and
- *   nothing in the suite had ever rendered the page itself. A route that is
- *   only ever asserted absent is a route that can be broken without failing a
- *   single test.
- *
- *   It also pins the claim `UnderwritingPage`'s header makes and that reading
- *   the component cannot settle: that the three reads go out *together*,
- *   behind one session bootstrap. `Promise.all([a, b, c])` and three
- *   sequential `await`s render the same page at the same moment; only the
- *   request log tells them apart.
- *
- * CONCEPTS: W4-D5-04, W4-D3-04, W3-D2-07
- *
- * WITHOUT THIS:
- *   Two failures go unnoticed. A `Promise.all` quietly refactored into a
- *   waterfall triples the page's time to first paint and removes the only
- *   clickable demonstration of the single-flight 401 queue — with nothing on
- *   screen changing. And the whole page could stop rendering: the suite would
- *   still be green, because the only test that mentions this route asserts it
- *   is *not* there.
- */
-
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';

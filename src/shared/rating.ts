@@ -1,34 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Prices a policy. Not a lookup table: it builds a discretised severity
- *   distribution per coverage line, compounds it against a Poisson claim count
- *   to get that line's aggregate loss distribution, convolves the lines
- *   together to get the policy's aggregate, and charges expected loss plus a
- *   risk margin driven by the 95% tail. Then it applies the manual-rate
- *   credibility blend, the age and claims loadings, and the no-claim,
- *   sum-insured-band and tenure discounts.
- *
- * CONCEPTS: W3-D1-03, C-03, C-02
- *
- * WITHOUT THIS:
- *   `useMemo` around `rateBook` (W3-D1-03) is the one row in the matrix that
- *   cannot be demonstrated with cheap code. If the premium were
- *   `sumInsured * 0.02`, memoising it would save nothing measurable, the
- *   reviewer would correctly say "that useMemo is cargo cult", and W3-D1-06
- *   ("when NOT to optimise") would have no counterpart to contrast against.
- *   Removing the `useMemo` on a real `rateBook` call makes every keystroke in
- *   the /policies search box re-price 130+ policies on the main thread, and
- *   the input visibly drops characters — which is also what makes
- *   `useDeferredValue` (C-03) worth having.
- *
- *   The tail matters and is the reason this is expensive rather than merely
- *   arithmetic-heavy: a risk margin is a *percentile* of the aggregate loss,
- *   and percentiles do not compose from means. E[L] for six coverage lines is
- *   just the sum of six numbers, but the 95th percentile of their total
- *   requires the actual convolved distribution. That convolution is the cost,
- *   and it is real work, not a busy-wait.
- */
-
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { BASE_RATE_PER_MILLE, CATALOGUE_BY_CODE } from './data/catalogue';
 import type { Claim, Coverage, Customer, Policy, PolicyType } from './types';

@@ -1,20 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Proves `PolicyList` renders exactly the rows it is given — the piece
- *   `usePolicyFilters` depends on being true for the "filter narrows the
- *   table" story to hold end to end.
- *
- * CONCEPTS: W3-D2-07
- *
- * WITHOUT THIS:
- *   `usePolicyFilters`'s own filtering logic is a straightforward array
- *   `.filter()` and easy to trust by reading; what is not obvious by
- *   reading is whether `PolicyList` correctly reflects whatever array it
- *   receives — a stale `key` or a swapped prop could show the *previous*
- *   filtered set for a render. This closes that gap for the actual
- *   component the app renders, not just the hook's data.
- */
-
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';

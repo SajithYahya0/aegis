@@ -1,16 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   `/policies/:id/documents`. Lists attached paperwork straight from the
- *   in-memory index — documents are static seed data with no async story of
- *   their own, unlike the Claims tab.
- *
- * CONCEPTS: (nested-route content — see PolicyDetailPage for W2-D4-03)
- *
- * WITHOUT THIS:
- *   The third leg of the Coverage/Claims/Documents nested-route trio would be
- *   missing, so the tab nav would link to a page that 404s.
- */
-
 import type { ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
 import { documentsByPolicyId, EMPTY } from '../../shared/data';

@@ -1,34 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Pins the four things about this folder that cannot be seen by reading it,
- *   and that a live click-through can only partly show: that a token is
- *   attached to every request, that a *burst* of concurrent 401s produces
- *   exactly one refresh, that a replay which 401s again stops instead of
- *   looping, and that an abort really reaches the transport.
- *
- * CONCEPTS: W4-D3-02, W4-D3-03, W4-D3-04, W4-D3-05
- *
- * WITHOUT THIS:
- *   The single-flight refresh is the kind of code that looks right and is
- *   wrong under exactly one condition — several requests failing at the same
- *   moment — which is the condition no manual demo reliably produces. The
- *   `expire-token` lab toggle shows the recovery for one request; only a test
- *   can fire three at once and then count that there was one `POST
- *   /auth/refresh` and not three. Three refreshes is not a slow path, it is a
- *   logout: each refresh rotates the token, so the second and third present
- *   one the first already spent.
- *
- *   The retry guard is worse to leave untested, because its failure mode is
- *   unbounded: a session the server will never accept again would refresh,
- *   replay, 401, and refresh forever. The test below asserts the exact
- *   counts — two attempts, one refresh — so a future edit that drops the
- *   `_retry` flag fails here instead of in a browser tab pinned at 100% CPU.
- *
- *   These also cover the mock backend routes that no component calls yet
- *   (`GET /policies`, `GET /risk-feed/:id`), which is the honest reason they
- *   are exercised here rather than left as handlers nothing has ever run.
- */
-
 import axios, { type AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { afterEach, describe, expect, it } from 'vitest';

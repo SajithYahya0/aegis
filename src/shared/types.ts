@@ -1,20 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The single vocabulary for the whole console. Every route, hook, reducer and
- *   test speaks in these shapes, so `src/shared/data`, `src/shared/api.ts` and
- *   `src/shared/rating.ts` cannot drift apart.
- *
- * CONCEPTS: W1-03
- *
- * WITHOUT THIS:
- *   Each route re-declares its own idea of a Policy. The moment one of them
- *   spells the status `"cancelled"` and another `"canceled"`, the status filter
- *   on /policies silently returns zero rows with no type error to catch it,
- *   and the status-colour CSS Module class lookup returns `undefined` so the
- *   badge renders unstyled. Typed prop interfaces (W1-03) are only worth
- *   anything if there is one definition of the thing being passed.
- */
-
 /* -------------------------------------------------------------------------- */
 /* Identity & access                                                          */
 /* -------------------------------------------------------------------------- */

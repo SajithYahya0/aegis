@@ -1,31 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   Builds the whole demo book — customers, policies, claims and documents —
- *   from one integer seed, with referential integrity (every `claim.policyId`
- *   resolves, every `policy.claimIds` entry exists, every `policy.customerId`
- *   resolves).
- *
- * CONCEPTS: W1-08, W3-D1-03, C-03
- *
- * WITHOUT THIS:
- *   Two separate failures. (1) Volume: with a hand-written 6-policy fixture,
- *   `rateBook` over the book finishes in well under a millisecond, so wrapping
- *   it in `useMemo` (W3-D1-03) changes nothing measurable and the reviewer is
- *   right to ask why it is there. `useDeferredValue` (C-03) has the same
- *   problem — a 6-row list re-renders faster than a keystroke, so there is no
- *   lag to defer and the dimmed-while-stale UI never appears. (2) Integrity:
- *   generating claims independently of policies produces `claim.policyId`
- *   values that resolve to `undefined`, and the claims tab on /policies/:id
- *   crashes on `policy.coverages.find(...)` rather than rendering an empty
- *   state.
- *
- *   Dates are drawn as *offsets from today*, not as absolute calendar dates.
- *   Absolute dates would mean "expires within 30 days" matches a different set
- *   of policies every week and the renewal countdown eventually counts down
- *   past zero for the entire book, so the expiring-soon filter and the
- *   countdown timer would both be dead on any day but the day this was written.
- */
-
 import type {
   Claim,
   ClaimStatus,

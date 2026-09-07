@@ -1,23 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The single list of deliberate defects and the store that tracks which are
- *   switched on. Plain module state with a subscribe/notify pair — not
- *   Context — because a defect like the conditional-hook demo has to read a
- *   toggle from inside a component that is deliberately breaking the rules of
- *   hooks, and a `useContext` call cannot be trusted to survive next to that.
- *
- * CONCEPTS: (infrastructure for W2-D1-05, W2-D1-06, W2-D3-02, W3-D2-01,
- *   W3-D4-03, W4-D3-04, C-05 — see the individual demo files, QuoteContext,
- *   PolicyClaimsTab and shared/http/mockBackend.ts for where each one fires)
- *
- * WITHOUT THIS:
- *   Every defect would need its own bespoke boolean prop threaded down from
- *   wherever it is demonstrated, so turning one on for a live walkthrough
- *   means editing source and reloading rather than clicking a checkbox in
- *   `LabPanel`. CLAUDE.md requires these toggles to be runtime-flippable and
- *   off by default; a compile-time flag satisfies neither.
- */
-
 export type LabDefectId =
   | 'conditional-hook'
   | 'mutating-reducer'

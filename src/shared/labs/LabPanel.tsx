@@ -1,19 +1,3 @@
-/**
- * WHY THIS EXISTS:
- *   The dev-only control surface for every registered defect: a checkbox per
- *   toggle, its symptom described up front, and — for the two defects that
- *   are safe to sandbox in isolation — a live mini-demo right next to the
- *   switch. Mounted once, in `AppLayout`, so it is reachable from every route.
- *
- * CONCEPTS: (dev tooling — see registry.ts for the concepts each toggle claims)
- *
- * WITHOUT THIS:
- *   Flipping a defect on would mean editing `registry.ts`'s initial map and
- *   reloading, which is not what "runtime toggles" means. A reviewer asking
- *   "show me the stale closure bug" would have to be handed a code diff
- *   instead of a checkbox.
- */
-
 import { useState, type ReactElement } from 'react';
 import { ConditionalHookDemo } from './ConditionalHookDemo';
 import { EffectDepsDemo } from './EffectDepsDemo';
