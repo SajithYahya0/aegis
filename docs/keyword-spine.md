@@ -9,9 +9,11 @@ Format: `**keyword** · ID — where it lives — what breaks without it`.
 
 Lines marked **⚠** are ones where the honest recall includes a caveat; the
 caveat is the part worth remembering, and `docs/qa-drills.md` argues each one.
-Six of them correspond to the `[~]` rows in `docs/coverage-matrix.md` — code
+Three of them correspond to the `[~]` rows in `docs/coverage-matrix.md` — code
 that is correct and reachable but demonstrates nothing observable here. The rest
-are caveats on rows that are otherwise solid.
+are caveats on rows that are otherwise solid. (It read "six" until Week 4 Day 5,
+which closed three of them by building the surfaces they were waiting for and
+made a fourth — C-07 — worse.)
 
 ---
 
@@ -38,7 +40,7 @@ are caveats on rows that are otherwise solid.
 
 ### Effects
 
-**useEffect mount-only** · W2-D1-01 — `useFetch` ⚠ — a `[policyId]` effect *is* the mount case on first render; a literal `[]` fetch here would show POL-1's claims forever because Router reuses the instance.
+**useEffect mount-only** · W2-D1-01 — `UnderwritingPage` (`useFetch(…, [])`) — its three reads depend on nothing the component can change, so `[]` is correct there. Contrast one hook away: `PolicyClaimsTab` passes `[policyId]` because Router reuses the tab instance across `:id` changes, and a literal `[]` there would show POL-1's claims forever. No longer ⚠ — the row was qualified until a page existed that genuinely fetches once.
 **useEffect dependency-driven** · W2-D1-02 — `useFetch(fetcher, [policyId])` — deps are the caller's contract for "what should trigger a refetch"; the fetcher itself is held in a ref so it stays out of them.
 **AbortController cleanup** · W2-D1-03 — `useFetch` cleanup — two in-flight requests race; whichever settles second wins, unrelated to what the URL now says.
 **Interval cleanup** · W2-D1-04 — `useRenewalCountdown` — no `clearInterval` and five visited policies leave five countdowns ticking against unmounted components.
@@ -105,7 +107,7 @@ are caveats on rows that are otherwise solid.
 ### Code splitting
 
 **React.lazy routes** · W3-D3-01 — `lazyRoutes.tsx` — seven top-level routes plus three tabs, each its own chunk; `rating.ts` left the entry chunk, `shared/data` did not (⚠ `AppLayout` imports `AS_OF`, and one static import pins the graph below it).
-**React.lazy component** · W3-D3-02 — `ClaimIntakeWizard` inside the modal — works only because `Modal` returns `null` when closed; `<div hidden>` mounts the subtree and downloads the chunk on page load while looking identical.
+**React.lazy component** · W3-D3-02 — `ClaimIntakeWizard` inside MUI's `Dialog` — works only because `Dialog` renders nothing while `open` is false; `keepMounted` (or `<div hidden>`, which is what the app's own `Modal` deliberately is not) mounts the subtree and downloads the chunk on page load while looking identical. The container changed in Week 4 Day 5 and the property did not.
 **Suspense fallback** · W3-D3-03 — eleven boundaries, none at the root — a fallback replaces everything below it, so placement *is* the definition of what disappears.
 **Skeleton** · W3-D3-04 — `Skeleton` `table`/`card`/`panel` — a fallback shaped like the page it replaces; only per-route boundaries make that possible, a root one can only spin.
 **Preload on intent** · W3-D3-05 — `preloadPath` on `onMouseEnter` **and** `onFocus` — hover alone is an a11y regression: keyboard users would take the slow path on every navigation. Paired log lines are what make it observable rather than plausible.
@@ -129,6 +131,55 @@ are caveats on rows that are otherwise solid.
 
 ---
 
+## Week 4 — MUI, theming, axios, Redux Toolkit, react-hook-form
+
+Placed after Week 3 rather than at the end of the file, so the four "week"
+sections stay contiguous and the completeness tier stays last.
+
+### Theming and layout
+
+**ThemeProvider + CssBaseline** · W4-D1-01 — `ThemeModeProvider`, mounted in `main.tsx` *outside* `BrowserRouter` — `sx`, `styled()` and `palette.status` are all reads off the theme context; below the router the theme would remount per navigation and portalled content would miss it entirely.
+**MUI core components** · W4-D1-02 — `AppBar`/`TextField` (`AppShell`), `Card`/`Table` (`/dashboard`, `/underwriting`), `Dialog` (`ClaimIntakePage`), `Button` (wizard `DialogActions`, `DecisionForm`) — all six now, and each waited for a page that wanted it rather than being rendered to close the row.
+**Grid2 / Box / Stack** · W4-D1-03 — one `Grid` container per page, not one per row — per-row containers make the vertical gutter a different number from the horizontal one, and nothing in the build says so.
+**Theme breakpoints, not media queries** · W4-D1-04 — `size={{ xs, sm, md }}` and `sx={{ display: { xs: 'none', md: 'table-cell' } }}` — hand-written queries drift from `theme.breakpoints` into a band of widths where the nav has collapsed and the content has not.
+**createTheme + custom `status` key** · W4-D2-01 — `theme.ts` `palette.status`, typed by `mui-augment.d.ts` — ⚠ the file is *not* `theme.d.ts`: TypeScript's wildcard matcher drops a `.d.ts` beside a `.ts` of the same basename, so the augmentation was in the repo and not in the program.
+**Typography / defaultProps / styleOverrides** · W4-D2-02 — `theme.ts` — `body1` is overridden for correctness, not house style: `CssBaseline` spreads it onto `body` after `global.css`, so MUI's 1rem would become the base size for the CSS Modules routes too.
+**Three-state theme toggle** · W4-D2-03 — `AppShell`'s `IconButton` → `useLocalStorage` → `matchMedia` — Light → Dark → **System**, because a two-state button makes the first click a one-way door out of "follow my OS".
+**styled()** · W4-D2-04 — `StatusChip` on /dashboard, /underwriting and the wizard's review step — reused, and varies by `PolicyStatus`; `shouldForwardProp` is what keeps `status` out of the DOM, where React tolerates it silently.
+**sx** · W4-D2-05 — `DashboardPage`, `AppShell`, `UnderwritingPage` — one-off, local, no variant axis. The rule the pair demonstrates: `styled()` when reused or varying, `sx` when used once in one place.
+
+### axios
+
+**Instance + baseURL** · W4-D3-01 — `http` in `client.ts`, composed in `store/index.ts` — mocked at the *adapter*, not at the endpoint functions, so every request is dispatched by axios for real and every interceptor genuinely runs.
+**Request interceptor — token attach** · W4-D3-02 — interceptor (a) — reads `store.getState().auth.token`, skips `/auth/*` (or the login waits on itself), and owns the single-flight session bootstrap. Module state, not Context: an interceptor registered at module load has no component to call `useContext` from.
+**Response interceptor — logging + normalisation** · W4-D3-03 — interceptors (b) and (c) — four failure shapes (status, no-response, cancel, non-axios throw) become one `ApiError`, preferring the server's own `code`/`message` over "Request failed with status code 503".
+**401 single-flight + `_retry` guard** · W4-D3-04 — `refreshOnce()` — the queue *is* the promise; each waiter is already parked in its own `await`. Clickable on `/underwriting`: three parallel reads, three 401s, one refresh, three replays. A replay that 401s again finds `_retry` set and is normalised instead of refreshed.
+**Cancellation through axios** · W4-D3-05 — `endpoints.ts` passes `config.signal`; `mockBackend`'s `delay()` listens for it — `axios-mock-adapter` ignores `config.signal` entirely, so without that listener the abort is a no-op at the transport and the stale response still arrives.
+
+### Redux Toolkit
+
+**configureStore + typed hooks** · W4-D4-01 — `useSelector.withTypes<RootState>()` — derived, not cast: a cast keeps type-checking against a dispatch signature the store no longer has, and erases the return type `.unwrap()` needs.
+**createSlice + Immer** · W4-D4-02 — `switchRole`, `logout`, `clearSubmitted` — the mutation is safe *because* Immer returns a new object; a reducer that really mutated would leave `Object.is` answering "unchanged" and nothing on screen would move. Deliberately the opposite style to `quoteReducer` one folder away.
+**createAsyncThunk + extraReducers** · W4-D4-03 — `loginThunk`, `refreshThunk`, `submitClaimThunk` — all three lifecycle actions handled, not just `fulfilled`: `pending` is what locks the role switcher against a second in-flight switch, `rejected` is what stops a dead session reporting itself healthy.
+**Two slices, not one** · W4-D4-01 — `auth` + `claims` — `logout` writes every `AuthState` field out by hand so nothing survives it; a combined slice would put the agent's record of what they filed inside that blast radius.
+**createSelector** · W4-D4-04 — `selectExposureByCustomer` — un-memoised, it re-prices the whole book on every `auth/*` action, because a fresh array can never pass `Object.is`. `selectRole`/`selectIsUnderwriter` are deliberately **not** memoised — reference equality on a primitive already is value equality.
+**Context retained beside the store** · W4-D4-05 — `<Provider store>` and `<QuoteProvider>` eight lines apart in `main.tsx` — the wizard draft stays on Context + `useReducer` so the two answers to "shared state" can be read against each other in one running app.
+
+### react-hook-form + Zod
+
+**useForm + register + Controller** · W4-D5-01 — `ClaimIntakeWizard`, `DecisionForm` — `register` needs a native element whose `ref` carries the value. `Autocomplete`'s ref is its *search* input, MUI `Select`'s reaches a `div`, and a `Checkbox`'s value is `checked` — three different reasons, one silent symptom: the field reads `undefined` and validation rejects what the user can see on screen.
+**zodResolver + z.infer** · W4-D5-02 — `claimSchema.ts`, `decisionSchema.ts` — the type is `z.infer` of the schema, so there is nothing to drift from. The interface this replaced had already drifted: `amount: number` against an input producing a string.
+**Cross-field refine** · W4-D5-02 — `superRefine` with an explicit `path` — ⚠ the path is the load-bearing part. Left to default to the object root, the issue is raised, the per-step `trigger(['amount'])` never matches it, and an over-limit claim reaches the review screen. ⚠ also: Zod 4 runs the object check even while a field-level rule is failing — the opposite of Zod 3, measured and pinned in `claimSchema.test.ts` after this header claimed the Zod 3 behaviour.
+**Schema factory** · W4-D5-02 — `makeDecisionSchema(maxLoadingPct)` — the cap comes from `GET /underwriting/limits` at run time, so it cannot be a module-level schema. Hard-coded, the form accepts 45%, the endpoint refuses it, and the message names a rule the screen never mentioned.
+**formState + per-step trigger** · W4-D5-03 — `goNext()` awaits `trigger(STEP_FIELDS[step])` — `mode: 'onBlur'` + `reValidateMode: 'onChange'` is strict on the way in and forgiving on the way out. Submit is `!isDirty || isSubmitting`: without the first the only possible outcome of the first click is a failing request, without the second a double-click files two claims.
+**isValid, deliberately not disabling** · W4-D5-03 — wizard Continue, `DecisionForm` — it drives a variant and a caption, not `disabled`; a gate that goes dead gives the user no way to find out which field is wrong.
+**root errors** · W4-D5-03 — `setError('root.submit', …)` / `setError('root.server', …)` — the failure belongs to the *request*, not to any one input, and RHF clears `root` on the next submit where a `useState` slot would not.
+**Integrated surface** · W4-D5-04 — `/underwriting` — theming, three parallel axios reads, the memoised Redux selector and an RHF form on one screen. The parallelism is what makes W4-D3-04 clickable, and `UnderwritingPage.test.tsx` is the only test that renders this route at all — `App.test.tsx` runs as an `agent` and can only assert it is *absent*.
+**RHF vs controlled** · W4-D5-01 — `ClaimIntakeWizard` against `QuoteWizardPage` — twelve `useState` calls became zero, and every keystroke stopped re-rendering ten sibling inputs. The wizard *wants* that; `/quote` wants the opposite, because it recalculates a live premium on every render. Controlled state is for when every render needs the value.
+**What it cost** · W4-D5-01 ⚠ — `useActionState` and `useFormStatus` were the wizard's before this. C-06 repointed to `PolicyClaimsTab` and is fine; **C-07 lost its only observable call site**, because `useFormStatus().pending` is only ever true inside a React form action and `handleSubmit` is not one. Volunteer this — it is the one row Week 4 Day 5 made worse.
+
+---
+
 ## React 19 completeness tier
 
 **useId** · C-01 — `TextField` — three insured parties with a hard-coded `id` means three inputs sharing one id and three labels all pointing at the first.
@@ -136,8 +187,8 @@ are caveats on rows that are otherwise solid.
 **useDeferredValue** · C-03 — `usePolicyFilters` `deferredQuery` — defers a *value* whose source must stay urgent; `useTransition` marks an *update you own*. Same idea, opposite ends.
 **useSyncExternalStore** · C-04 — called directly in `ConnectivityBanner` — the `useState`+`useEffect` mirror can disagree with the store mid-render under concurrency. `getServerSnapshot` returns `true` so the offline banner never renders into server HTML. ⚠ `labs/registry.ts` is the same shape and deliberately still uses the mirror.
 **useOptimistic** · C-05 — `PolicyClaimsTab` — the overlay is *derived* from `claims`, so there is no removal step on failure to get wrong. Only applies inside a transition — it works here because the form action supplies one.
-**useActionState** · C-06 — `ClaimIntakeWizard` (validated ahead, one error slot) and `ClaimForm` (validated from `FormData`, per-field errors) — the same hook two genuinely different ways. ⚠ the wizard's `<form>` contains no fields.
-**useFormStatus** · C-07 — `SubmitButton`, `WizardNavButton`, `FormCancelButton` ⚠ — must be a *descendant* of the form, never the component that renders it. Real in the wizard; unobservable in `ClaimForm`, where the modal closes and unmounts the form before pending can render.
+**useActionState** · C-06 — `ClaimForm` in `PolicyClaimsTab` (validated from `FormData`, real per-field errors) — the action owns the async call and the error state, not an `onClick`. Repointed in Week 4 Day 5: the wizard was the second call site and now submits through `react-hook-form` instead. The one that stayed was always the more interesting of the two.
+**useFormStatus** · C-07 — `SubmitButton`, `FormCancelButton`, both inside `ClaimForm` ⚠⚠ — must be a *descendant* of the form, never the component that renders it, **and** the form must have an `action`: `pending` is only ever true inside a React form action, so `onSubmit` — including `react-hook-form`'s `handleSubmit` — reports `false` forever. That is why the wizard could not keep it. Its remaining call site was already unobservable (`handleLogClaim` closes the modal before its `await`), so this hook is now correct, reachable, and observable nowhere. Volunteer this.
 **useDebugValue** · C-08 — `useLocalStorage` — labels the hook in DevTools; without it, N `useLocalStorage` calls are N anonymous "State" entries.
 **createPortal** · C-09 — `Modal`, `Toast` → `#modal-root` — `position: fixed` inside a `transform`ed ancestor (which `Panel` creates) positions against that ancestor, not the viewport.
 **flushSync** · C-10 — `PolicyClaimsTab.handleLogClaim` — forces the DOM to catch up before the next line, so `lastRowRef` points at the row that was just appended rather than the one before it. Opts out of batching — right on a dozen claims, wrong on 140 policies.

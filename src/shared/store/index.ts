@@ -56,6 +56,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
 import { http, installInterceptors } from '../http';
 import { authReducer, type ThunkExtra } from './authSlice';
+import { claimsReducer } from './claimsSlice';
 
 /**
  * One store, wired to one axios instance. Exported for the tests; the app uses
@@ -63,7 +64,14 @@ import { authReducer, type ThunkExtra } from './authSlice';
  */
 export function makeStore(extra: ThunkExtra) {
   return configureStore({
-    reducer: { auth: authReducer },
+    // Two slices, one store. `claims` is not folded into `auth` even though
+    // both are session-scoped, and the reason is `logout`: it writes every
+    // field of `AuthState` out by hand precisely so nothing is left behind
+    // (see `authSlice.ts`). A combined slice would put the filed-claims list
+    // inside that blast radius, so switching role — which re-authenticates —
+    // would be one edit away from silently discarding the agent's own record
+    // of what they filed.
+    reducer: { auth: authReducer, claims: claimsReducer },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
         // Every thunk in this app needs a client; handing it over here is what

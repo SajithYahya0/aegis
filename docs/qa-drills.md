@@ -708,20 +708,29 @@ What did move, and is the biggest win: `rating.ts` left the entry chunk for
 </details>
 
 <details>
-<summary><b>6.4</b> — <code>ClaimIntakeWizard</code> is lazy-loaded inside a modal. What single property of <code>Modal</code> makes that work, and what innocuous refactor silently breaks it?</summary>
+<summary><b>6.4</b> — <code>ClaimIntakeWizard</code> is lazy-loaded inside a dialog. What single property of that dialog makes it work, and what innocuous refactor silently breaks it?</summary>
 
-`Modal` returns `null` while closed.
+It renders nothing while closed.
+
+The container changed in Week 4 Day 5 — the wizard became a MUI surface, so its
+host went from the app's own `Modal` to MUI's `Dialog` — and this answer did
+not, because the property is the same in both: `Modal` returned `null`, and
+`Dialog` renders nothing unless `open` or `keepMounted`.
 
 React does not load a lazy component because its element was *created* —
 `ClaimIntakePage` constructs `<ClaimIntakeWizard />` on every render — it loads it
 when the element is *rendered*. An unmounted subtree never renders, so the import
 never fires.
 
-The refactor that breaks it: implementing the modal as `<div hidden>` or
-`style={{ display: 'none' }}` around its children. Both are conventional, both
-look identical on screen, and both mount the subtree — so the wizard's chunk
-downloads on page load and the split becomes nominal while every visible
-behaviour stays correct.
+The refactor that breaks it: adding `keepMounted` to the `Dialog` — or, on the
+hand-rolled side, implementing the modal as `<div hidden>` or
+`style={{ display: 'none' }}` around its children. All three are conventional,
+all three look identical on screen, and all three mount the subtree — so the
+wizard's chunk (now ~50 kB, plus a shared ~122 kB of Zod) downloads on page load
+and the split becomes nominal while every visible behaviour stays correct.
+`keepMounted` is the more likely of the three to be added on purpose, because
+its documented reason — keeping dialog content in the DOM for SEO and for
+assistive tech — is a real one.
 
 `App.test.tsx` asserts against exactly this: it renders `/claims/new` and checks
 that the wizard's heading is *not* in the document. A hidden-but-mounted modal
@@ -1580,17 +1589,28 @@ unmounts. The action continues (it is a promise, not tied to the component), and
 mounted. But nothing is left to render `pending`, so the "Submitting…" label and
 the disabled Cancel button never appear here.
 
-C-07's claim of two working call sites is therefore one-and-a-half.
-`ClaimIntakeWizard` is the real one: `ClaimIntakePage.handleSubmit` awaits
-`submitClaim` *before* closing the modal, so the wizard stays mounted for the full
-400–900ms round trip and the pending state is visible.
+**Updated in Week 4 Day 5, and the update is worse.** This answer used to say
+C-07's claim of two working call sites was "one-and-a-half", with
+`ClaimIntakeWizard` as the real one — `ClaimIntakePage.handleSubmit` awaited the
+write *before* closing the modal, so the wizard stayed mounted for the full
+400–900ms round trip and the pending state was visible.
 
-The fix is not to reorder — closing immediately is the correct UX here, because
-the optimistic row in the table below is the feedback and a modal lingering on top
-of it would obscure the thing it is meant to reveal. The fix is to stop claiming
-this form as a `useFormStatus` demonstration, or to keep the modal open until the
-action settles and drop the optimistic row's job to the table alone. The two
-features are in genuine tension and the file does not currently acknowledge it.
+That call site is gone. The wizard now submits through `react-hook-form`'s
+`handleSubmit` and reads `formState.isSubmitting`, and `useFormStatus` could not
+follow it: `pending` is only ever true inside a React **form action**, so a form
+driven by `onSubmit` reports `false` no matter where the button sits. Being a
+descendant of the `<form>` is necessary and not sufficient — that is the part of
+the hook's contract most people get wrong, and it is worth being able to say
+under pressure.
+
+So C-07 is now one call site, and it is this one, and it is the unobservable
+one. The fix is still not to reorder — closing immediately is the correct UX
+here, because the optimistic row in the table below is the feedback and a modal
+lingering on top of it would obscure the thing it is meant to reveal. The honest
+position is that the hook is correct, reachable, and demonstrable nowhere in this
+app; `docs/coverage-matrix.md` records it as `[~]` and says the regression was
+this repo's own doing. `docs/practice/break-drills.md` D22 is the drill that
+shows why putting it back into the wizard does not work.
 </details>
 
 <details>
@@ -1710,15 +1730,26 @@ validation, no Enter-to-submit from a field, no `FormData` serialisation, nothin
 that works with JavaScript disabled.
 
 `PolicyClaimsTab`'s `ClaimForm` is the honest counterexample: fields inside the
-form, action reads `FormData`, per-field errors returned from the action. That is
-why two call sites exist rather than one — though see 13.3 for the other thing
-wrong with that one.
+form, action reads `FormData`, per-field errors returned from the action.
 
-The defensible position: the wizard's three steps genuinely cannot share one
+The defensible position was: the wizard's three steps genuinely cannot share one
 `<form>` without either mounting hidden inputs for the inactive steps or losing
-state between them, and the controlled-state design is the right one for a step
-machine. What follows from that is that the wizard is not the place to
-demonstrate form actions — not that a button-only `<form>` is a good shape.
+state between them, and so the wizard is not the place to demonstrate form
+actions — not that a button-only `<form>` is a good shape.
+
+**This drill was answered by a rebuild, and the answer is worth keeping.** In
+Week 4 Day 5 the wizard moved to `react-hook-form`, and the button-only `<form>`
+is gone: the element now wraps `DialogTitle`, `DialogContent` and
+`DialogActions`, the fields are inside it, and Enter-to-submit works from any of
+them. The step machine survived unchanged, which is the part that makes the old
+"cannot share one form" argument look weaker in hindsight than it read at the
+time — the fields do not need to be *mounted* together, only *registered*
+together, and that is what RHF's ref-backed store provides and controlled
+`useState` does not.
+
+What it cost is recorded rather than netted off: the wizard's `useActionState`
+went with it (C-06 repointed to `ClaimForm`, which was always the better of the
+two) and `useFormStatus` lost its only observable home (C-07, see 13.3).
 </details>
 
 <details>

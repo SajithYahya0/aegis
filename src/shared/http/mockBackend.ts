@@ -45,12 +45,20 @@ import {
 } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import {
+  claims as allClaims,
   claimsByPolicyId,
   documentsByPolicyId,
   policies as allPolicies,
   policiesById,
 } from '../data';
 import { isLabEnabled, setLabEnabled } from '../labs/registry';
+// Type-only, so it adds no runtime edge: the response shapes are the client's
+// contract (`endpoints.ts`) and this file is one implementation of it.
+import type {
+  UnderwritingDecision,
+  UnderwritingDecisionOutcome,
+  UnderwritingLimits,
+} from './endpoints';
 import type { Claim, ClaimType } from '../types';
 
 const MIN_LATENCY_MS = 400;
@@ -180,10 +188,25 @@ const ROUTE = {
   policy: /^\/policies\/([^/]+)$/,
   policyClaims: /^\/policies\/([^/]+)\/claims$/,
   policyDocuments: /^\/policies\/([^/]+)\/documents$/,
+  claims: /^\/claims$/,
   riskFeed: /^\/risk-feed\/([^/]+)$/,
+  underwritingLimits: /^\/underwriting\/limits$/,
+  underwritingDecisions: /^\/underwriting\/decisions$/,
   login: /^\/auth\/login$/,
   refresh: /^\/auth\/refresh$/,
 } as const;
+
+/**
+ * The server's own copy of the note rule. It is deliberately *stricter than
+ * nothing and looser than the client's*: `decisionSchema.ts` asks for 20
+ * characters, this asks for 10.
+ *
+ * That gap is the point. A client-side-only rule is a suggestion — anything
+ * that can reach the endpoint can skip it — so the endpoint states its own
+ * minimum, and the two numbers are different so that a reviewer can tell which
+ * one rejected a given attempt from the message alone.
+ */
+const MIN_SERVER_NOTE_CHARS = 10;
 
 function idFrom(config: AxiosRequestConfig, pattern: RegExp): string {
   return pattern.exec(pathOf(config))?.[1] ?? '';
@@ -349,6 +372,75 @@ export function installMockBackend(
         description: String(body.description ?? ''),
       };
       return [201, claim];
+    }),
+  );
+
+  /*
+   * The whole claims history, unscoped. `/underwriting` needs it to compute a
+   * loss ratio per policy, and it asks for it as one request rather than 140
+   * `GET /policies/:id/claims` calls — which is also what makes the referral
+   * queue a *burst* of three parallel requests rather than a waterfall of
+   * hundreds. See `UnderwritingPage.tsx`'s header.
+   */
+  mock.onGet(ROUTE.claims).reply((config) => serve(config, () => [200, allClaims]));
+
+  /**
+   * The branch's authority limits, read off the presented token rather than off
+   * a request parameter.
+   *
+   * `issueTokens` stamps the role into the access token (`at-3-underwriter`),
+   * so this is the one endpoint where the request interceptor's work is
+   * *visible in the response body*: change role in the AppBar, the store
+   * re-authenticates, the interceptor attaches the new token, and this handler
+   * answers with a different auto-bind limit. A `?role=` query parameter would
+   * look identical on screen and would let any caller ask for an authority it
+   * does not hold.
+   */
+  mock.onGet(ROUTE.underwritingLimits).reply((config) =>
+    serve(config, () => {
+      const presented = headerValue(config, 'Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+      const isUnderwriter = presented.endsWith('-underwriter');
+      const limits: UnderwritingLimits = isUnderwriter
+        ? { autoBindLimit: 2_500_000, maxLoadingPct: 40, referralLossRatio: 0.7 }
+        : { autoBindLimit: 500_000, maxLoadingPct: 10, referralLossRatio: 0.5 };
+      return [200, limits];
+    }),
+  );
+
+  /**
+   * Records an underwriting decision. Validates the note server-side — see
+   * `MIN_SERVER_NOTE_CHARS` — so the form has a real 422 to surface rather
+   * than an endpoint that accepts anything the client happened to send.
+   */
+  mock.onPost(ROUTE.underwritingDecisions).reply((config) =>
+    serve(config, () => {
+      const body = bodyOf(config);
+      const policyId = String(body.policyId ?? '');
+      const note = String(body.note ?? '').trim();
+
+      if (!policiesById.has(policyId)) return notFound(`Policy ${policyId}`);
+
+      if (note.length < MIN_SERVER_NOTE_CHARS) {
+        return [
+          422,
+          {
+            code: 'NOTE_TOO_SHORT',
+            message: `The underwriting note must be at least ${MIN_SERVER_NOTE_CHARS} characters (server rule).`,
+          },
+        ];
+      }
+
+      const presented = headerValue(config, 'Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+      const decision: UnderwritingDecision = {
+        id: `UWD-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+        policyId,
+        outcome: body.outcome as UnderwritingDecisionOutcome,
+        loadingPct: Number(body.loadingPct ?? 0),
+        note,
+        decidedAt: new Date().toISOString(),
+        decidedBy: presented || 'anonymous',
+      };
+      return [201, decision];
     }),
   );
 

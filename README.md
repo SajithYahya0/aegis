@@ -86,13 +86,25 @@ a reviewer.
    (`useReducer` lazy init + `localStorage`, W2-D3-03).
 9. **Go to `/claims/new`, open "Start a claim".** The wizard's chunk loads
    only now (component-level `React.lazy`, W3-D3-02) — watch the Network
-   tab or the `[chunk]` console log. Step through to Review and submit —
-   `useActionState` for the action, `useFormStatus` for the button's
-   pending state (C-06, C-07).
+   tab or the `[chunk]` console log; it is ~50 kB plus a shared ~122 kB of
+   Zod, none of which is in the entry chunk. Press Continue on the empty
+   Policy step: the error is the *schema's* sentence, raised by
+   `trigger(['policyId'])` (`react-hook-form` + `zodResolver`, W4-D5-01…03).
+   Pick a policy, then try to claim more than its sum insured — that is a
+   cross-field `superRefine`, reported on the amount field. Submit from
+   Review: the write goes out through the axios client as a thunk and the
+   claim appears under "Filed this session", read back out of the store.
 10. **Switch role to Underwriter, then back to Agent.** Visit
     `/underwriting` as each — the protected route (W2-D4-09) blocks the
     agent and explains the redirect (`useLocation`, W2-D4-08); the
-    underwriter gets through.
+    underwriter gets through. As the underwriter, that page is where all
+    four Week 4 topics are on screen at once (W4-D5-04): three axios reads
+    fired in parallel, the memoised Redux selector behind the exposure
+    totals, MUI throughout, and a second `react-hook-form` surface whose
+    validation cap came from the server. Tick **"Expire the access token"**
+    in the Lab panel, navigate away and back, and watch the console: three
+    401s, **one** `POST /auth/refresh`, three replays, and nothing wrong on
+    screen (W4-D3-04).
 11. **Open the Lab panel** (bottom of any page, dev only) and work through
     the toggle list below — each one has a symptom that only makes sense
     live.
