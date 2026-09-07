@@ -4,7 +4,7 @@
  *   than reaching into `state.auth` themselves, so the shape of the slice is
  *   free to change without every consumer changing with it.
  *
- *   Two of the three are plain functions and one is a `createSelector`. That
+ *   Three of the four are plain functions and one is a `createSelector`. That
  *   split is the point of the file, and it is deliberate in both directions —
  *   see below.
  *
