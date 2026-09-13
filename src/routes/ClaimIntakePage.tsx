@@ -1,137 +1,105 @@
-import { Suspense, useState, type ReactElement } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Dialog from '@mui/material/Dialog';
-import LinearProgress from '@mui/material/LinearProgress';
-import Link from '@mui/material/Link';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
-import Snackbar from '@mui/material/Snackbar';
-import Typography from '@mui/material/Typography';
-import { ErrorBoundary } from '../shared/components/ErrorBoundary';
-import { formatCurrency } from '../shared/format';
-import { splitChunk } from '../shared/routes/lazyRoutes';
-import { useAppSelector } from '../shared/store';
-import type { Claim } from '../shared/types';
-import type { ClaimIntakeWizardProps } from './claimIntake/ClaimIntakeWizard';
-
-/*
- * Declared at module scope, not inside the component. A `lazy()` call in the
- * render body produces a brand-new lazy component on every render, so React
- * sees a different element type each time, unmounts the previous one and
- * re-suspends — the wizard would remount and lose every field the agent had
- * filled in, on every keystroke that re-rendered this page.
- *
- * The `import()` stays here rather than moving into `lazyRoutes.tsx`: the
- * dynamic import is what draws the chunk boundary, and it belongs in the file
- * that owns the split. Only the mechanism around it — memoise, log, reset — is
- * shared.
- */
-const ClaimIntakeWizardChunk = splitChunk<ClaimIntakeWizardProps>(
-  'ClaimIntakeWizard',
-  () => import('./claimIntake/ClaimIntakeWizard'),
-);
+import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Alert, Button, Card, CardContent, Stack, Step, StepLabel, Stepper, Typography,
+} from '@mui/material';
+import { fetchPolicies } from '../shared/http/client';
+import { useAppDispatch } from '../shared/store';
+import { submitClaimThunk } from '../shared/store/claimsSlice';
+import { CLAIM_TYPE_LABEL, formatCurrency } from '../shared/domain';
+import type { Policy } from '../shared/domain';
+import { ClaimIncidentStep, INCIDENT_FIELDS, type IncidentStepHandle } from './ClaimIncidentStep';
+import { EMPTY_CLAIM, claimSchema, type ClaimFormValues } from './claimSchema';
 
 export default function ClaimIntakePage(): ReactElement {
-  const [open, setOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const submitted = useAppSelector((state) => state.claims.submitted);
+  const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
+  const [policies, setPolicies] = useState<readonly Policy[]>([]);
+  const [onReview, setOnReview] = useState(false);
+  const [filedId, setFiledId] = useState<string | null>(null);
+  const stepRef = useRef<IncidentStepHandle>(null);
 
-  /*
-   * The write itself is the wizard's — it dispatches `submitClaimThunk`, which
-   * POSTs through the axios client and puts the result in the store. By the
-   * time this runs the claim is already recorded, so all this owes the user is
-   * to get the dialog out of the way and say what happened.
-   */
-  function handleSubmitted(claim: Claim): void {
-    setOpen(false);
-    setToastMessage(`Claim ${claim.id} logged against ${claim.policyId}.`);
+  const { control, handleSubmit, trigger, getValues, setError, reset, formState } =
+    useForm<ClaimFormValues>({
+      resolver: zodResolver(claimSchema),
+      mode: 'onBlur',
+      defaultValues: { ...EMPTY_CLAIM, policyId: searchParams.get('policy') ?? '' },
+    });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchPolicies({ q: '', status: '', type: '', expiring: false }, controller.signal)
+      .then(setPolicies)
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  async function goToReview(): Promise<void> {
+    if (await trigger(INCIDENT_FIELDS.slice())) setOnReview(true);
+    else stepRef.current?.focusFirstInvalid();
   }
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Typography variant="h1">New claim</Typography>
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      const claim = await dispatch(submitClaimThunk(values)).unwrap();
+      setFiledId(claim.id);
+      setOnReview(false);
+      reset(EMPTY_CLAIM as ClaimFormValues);
+    } catch (thrown) {
+      setOnReview(false);
+      setError('root.server', {
+        message: thrown instanceof Error ? thrown.message : 'The claim could not be filed.',
+      });
+    }
+  });
 
+  const values = getValues();
+
+  return (
+    <Stack component="form" onSubmit={onSubmit} noValidate spacing={2}>
+      <Typography variant="h1">New claim</Typography>
+      <Stepper activeStep={onReview ? 1 : 0}>
+        <Step><StepLabel>Incident</StepLabel></Step>
+        <Step><StepLabel>Review</StepLabel></Step>
+      </Stepper>
+      {filedId ? (
+        <Alert severity="success">Claim {filedId} filed. It is listed on the dashboard.</Alert>
+      ) : null}
+      {formState.errors.root?.server ? (
+        <Alert severity="error">{formState.errors.root.server.message}</Alert>
+      ) : null}
       <Card>
-        <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
-          <Typography variant="h2" component="h2">
-            First notice of loss
-          </Typography>
-          <Typography variant="body2">
-            Record a new claim against any policy in the book. The intake wizard walks through
-            policy selection, incident detail and a review step before anything is submitted.
-          </Typography>
-          <Button variant="contained" onClick={() => setOpen(true)}>
-            Start a claim
-          </Button>
+        <CardContent>
+          {onReview ? (
+            <Stack spacing={1}>
+              <Typography variant="body1">
+                {values.policyId} · {CLAIM_TYPE_LABEL[values.type]} ·{' '}
+                {formatCurrency(values.amount)}
+              </Typography>
+              <Typography variant="body2">
+                {values.incidentDate} · {values.claimantPhone}
+              </Typography>
+              <Typography variant="body2">{values.description}</Typography>
+            </Stack>
+          ) : (
+            <ClaimIncidentStep ref={stepRef} control={control} policies={policies} />
+          )}
         </CardContent>
       </Card>
-
-      {submitted.length > 0 ? (
-        <Card>
-          <CardContent>
-            <Typography variant="h2" component="h2">
-              Filed this session
-            </Typography>
-            <List dense>
-              {submitted.map((claim) => (
-                <ListItem key={claim.id} disableGutters>
-                  <ListItemText
-                    primary={
-                      <>
-                        {claim.id} · {formatCurrency(claim.amount)} ·{' '}
-                        <Link component={RouterLink} to={`/policies/${claim.policyId}/claims`}>
-                          {claim.policyId}
-                        </Link>
-                      </>
-                    }
-                    secondary={claim.description}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        aria-labelledby="claim-intake-title"
-        fullWidth
-        maxWidth="md"
-      >
-        <ErrorBoundary label="Claim intake wizard" onRetry={ClaimIntakeWizardChunk.reset}>
-          <Suspense
-            fallback={
-              <Box sx={{ p: 4 }} aria-label="Loading claim wizard">
-                <LinearProgress />
-              </Box>
-            }
-          >
-            <ClaimIntakeWizardChunk.Component
-              onSubmitted={handleSubmitted}
-              onCancel={() => setOpen(false)}
-            />
-          </Suspense>
-        </ErrorBoundary>
-      </Dialog>
-
-      <Snackbar
-        open={toastMessage !== null}
-        autoHideDuration={6000}
-        onClose={() => setToastMessage(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" onClose={() => setToastMessage(null)}>
-          {toastMessage}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <Stack direction="row" spacing={1}>
+        {onReview ? (
+          <>
+            <Button onClick={() => setOnReview(false)}>Back</Button>
+            <Button type="submit" variant="contained" disabled={formState.isSubmitting}>
+              {formState.isSubmitting ? 'Filing…' : 'File claim'}
+            </Button>
+          </>
+        ) : (
+          <Button variant="contained" onClick={goToReview}>Review</Button>
+        )}
+      </Stack>
+    </Stack>
   );
 }

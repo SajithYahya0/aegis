@@ -1,301 +1,125 @@
-import axios, { isAxiosError, type AxiosError, type AxiosInstance } from 'axios';
-import { loginThunk, logout, refreshThunk } from '../store/authSlice';
+import axios, { isAxiosError, type AxiosError } from 'axios';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { ApiError, http } from './client';
+import { SESSION_ENDED, loginThunk, logout, refreshThunk } from '../store/authSlice';
 import type { AppStore } from '../store';
 
-/** Endpoints that must not have a token attached — see `ensureAccessToken`. */
-const AUTH_PATH = /^\/auth\//;
-
-const CORRELATION_HEADER = 'x-correlation-id';
-
-/* -------------------------------------------------------------------------- */
-/* The one error type                                                         */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Every failure that leaves this module is one of these, whatever it was on
- * the way in.
- *
- * `status` is 0 for failures that never got a response (timeout, cancellation)
- * rather than `undefined`, so a consumer can compare it without a null check
- * and `status >= 500` never silently means "no response".
- */
-export class ApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly correlationId: string;
-
-  constructor(init: { status: number; code: string; message: string; correlationId: string }) {
-    super(init.message);
-    this.name = 'ApiError';
-    this.status = init.status;
-    this.code = init.code;
-    this.correlationId = init.correlationId;
-  }
-
-  /**
-   * True when the caller aborted the request itself. Kept as a flag on the one
-   * error type rather than by letting `CanceledError` through unwrapped: a
-   * consumer that has to ask `axios.isCancel(e) || e instanceof ApiError` is
-   * back to branching on transport internals, which is the thing this class
-   * exists to stop.
-   */
-  get canceled(): boolean {
-    return this.code === 'ERR_CANCELED';
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    correlationId?: string;
+    retried?: boolean;
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function now(): number {
-  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+export interface HttpErrorState {
+  message: string | null;
+  correlationId: string | null;
 }
 
-let correlationSeq = 0;
+const initialState: HttpErrorState = { message: null, correlationId: null };
 
-/**
- * A short, ordered id rather than a UUID. Both are unique enough for one tab;
- * only one of them can be read at a glance in a console where three requests
- * and a refresh are interleaved, which is the entire reason it is printed.
- */
-function newCorrelationId(): string {
-  correlationSeq += 1;
-  return `req-${String(correlationSeq).padStart(4, '0')}`;
+const httpErrorSlice = createSlice({
+  name: 'httpError',
+  initialState,
+  reducers: {
+    requestFailed(state, action: PayloadAction<{ message: string; correlationId: string }>) {
+      state.message = action.payload.message;
+      state.correlationId = action.payload.correlationId;
+    },
+    dismissHttpError(state) {
+      state.message = null;
+      state.correlationId = null;
+    },
+  },
+});
+
+export const { requestFailed, dismissHttpError } = httpErrorSlice.actions;
+export const httpErrorReducer = httpErrorSlice.reducer;
+
+let sequence = 0;
+
+function nextCorrelationId(): string {
+  sequence += 1;
+  return `req-${String(sequence).padStart(4, '0')}`;
 }
 
 function isAuthEndpoint(url: string | undefined): boolean {
-  return AUTH_PATH.test(url ?? '');
+  return (url ?? '').startsWith('/auth/');
 }
 
-/**
- * `dispatch(thunk).unwrap()` re-throws whatever `rejectWithValue` was handed —
- * here a plain string. A string escaping into a `catch` block is precisely the
- * "one error shape" contract this module exists to keep, so it is put back
- * into an `ApiError` before it can leave.
- */
-function asApiError(reason: unknown, code: string, fallback: string): ApiError {
-  if (reason instanceof ApiError) return reason;
-  const message =
-    typeof reason === 'string' && reason
-      ? reason
-      : reason instanceof Error && reason.message
-        ? reason.message
-        : fallback;
-  return new ApiError({ status: 401, code, message, correlationId: 'req-????' });
+function messageFor(error: AxiosError): string {
+  const body = error.response?.data;
+  const hasMessage =
+    body && typeof body === 'object' && typeof (body as { message?: unknown }).message === 'string';
+  if (hasMessage) return (body as { message: string }).message;
+  if (!error.response) return 'The server could not be reached.';
+  return error.message;
 }
 
-/** Server-supplied `{ code, message }`, when the response body carries one. */
-function bodyFields(data: unknown): { code?: string; message?: string } {
-  if (typeof data !== 'object' || data === null) return {};
-  const record = data as Record<string, unknown>;
-  return {
-    code: typeof record.code === 'string' ? record.code : undefined,
-    message: typeof record.message === 'string' ? record.message : undefined,
-  };
-}
+export function installInterceptors(store: AppStore): void {
+  let sessionRequest: Promise<string> | null = null;
+  let refreshRequest: Promise<string> | null = null;
 
-function normalise(error: AxiosError): ApiError {
-  const correlationId = error.config?.meta?.correlationId ?? 'req-????';
-
-  if (axios.isCancel(error)) {
-    return new ApiError({
-      status: 0,
-      code: 'ERR_CANCELED',
-      message: 'Request canceled by the caller.',
-      correlationId,
-    });
+  function signIn(): Promise<string> {
+    sessionRequest ??= store
+      .dispatch(loginThunk())
+      .unwrap()
+      .then((pair) => pair.accessToken)
+      .finally(() => {
+        sessionRequest = null;
+      });
+    return sessionRequest;
   }
 
-  if (!error.response) {
-    return new ApiError({
-      status: 0,
-      code: error.code ?? 'ERR_NETWORK',
-      message:
-        error.code === 'ECONNABORTED'
-          ? 'The server did not respond in time.'
-          : (error.message || 'The request could not be sent.'),
-      correlationId,
-    });
-  }
-
-  const { code, message } = bodyFields(error.response.data);
-  return new ApiError({
-    status: error.response.status,
-    // The server's own words first. `error.message` is the transport's
-    // ("Request failed with status code 503"), which is true and useless.
-    code: code ?? `HTTP_${error.response.status}`,
-    message: message ?? error.message,
-    correlationId,
-  });
-}
-
-/* -------------------------------------------------------------------------- */
-/* Install                                                                    */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Registers the three interceptors on `instance` and returns a function that
- * removes them again.
- *
- * The two in-flight promises below are per-install, not per-module, so a test
- * that builds its own instance starts with no session and no refresh in
- * progress — otherwise the first test to log in would leave a token behind
- * that makes the second test's "does it attach a token" assertion pass for
- * the wrong reason.
- */
-export function installInterceptors(instance: AxiosInstance, store: AppStore): () => void {
-  /** The bootstrap `POST /auth/login`, shared by everything waiting on it. */
-  let sessionPromise: Promise<string> | null = null;
-  /** The in-flight `POST /auth/refresh`. This is the single-flight queue. */
-  let refreshPromise: Promise<string> | null = null;
-
-  async function login(): Promise<string> {
-    try {
-      // The role comes from the store rather than a constant: the mock backend
-      // stamps it into the token, so a session bootstrapped while the user is
-      // acting as an underwriter must not be minted as an agent.
-      const pair = await store.dispatch(loginThunk(store.getState().auth.role)).unwrap();
-      return pair.accessToken;
-    } catch (reason) {
-      throw asApiError(reason, 'LOGIN_FAILED', 'Could not start a session.');
-    }
-  }
-
-  /**
-   * The token to attach, logging in first if this is the session's very first
-   * request.
-   *
-   * Concurrent callers share one login for the same reason they share one
-   * refresh: the Claims tab mounting fires its GET while nothing has a token
-   * yet, and a second request in the same tick must queue behind that login
-   * rather than start its own and overwrite the tokens the first one stored.
-   *
-   * This is also why `/auth/*` requests skip the interceptor's token attach
-   * entirely: the login request goes through this same instance, so asking it
-   * to wait for a token would mean waiting for itself.
-   */
-  function ensureAccessToken(): Promise<string> {
-    // W4-D4-01: the bearer token is read straight off the store. There is no
-    // module-level token variable left in this folder to go stale against it.
-    const existing = store.getState().auth.token;
-    if (existing) return Promise.resolve(existing);
-
-    sessionPromise ??= login().finally(() => {
-      sessionPromise = null;
-    });
-    return sessionPromise;
-  }
-
-  /**
-   * Refreshes the session at most once at a time.
-   *
-   * Every 401 that arrives while a refresh is in flight joins the existing
-   * promise instead of starting a second one — that is the whole queue. There
-   * is no array of pending requests to replay by hand: each 401 is already
-   * sitting in its own `await` inside the error interceptor, and resuming it
-   * when this promise settles replays it in place.
-   */
-  function refreshOnce(): Promise<string> {
-    if (refreshPromise) {
-      console.log('[auth] ⇢ joining the in-flight refresh');
-      return refreshPromise;
-    }
-
-    console.log('[auth] ↻ refreshing session');
-    refreshPromise = (async () => {
-      try {
-        // The refresh token is read inside the thunk, off the same store —
-        // see `refreshThunk` for why it is not passed in from here.
-        const pair = await store.dispatch(refreshThunk()).unwrap();
-        return pair.accessToken;
-      } catch (reason) {
-        // A refused refresh is terminal, and ending the session is this
-        // module's call rather than the slice's: `refresh/rejected` records
-        // what happened to one request, `logout()` decides there is no
-        // session left. Leaving the dead tokens in place would have the next
-        // request attach them, 401, and refresh again — a slow loop instead
-        // of one clean failure the UI can show.
+  function refreshSession(): Promise<string> {
+    refreshRequest ??= store
+      .dispatch(refreshThunk())
+      .unwrap()
+      .then((pair) => pair.accessToken)
+      .catch((reason: unknown) => {
         store.dispatch(logout());
-        throw asApiError(reason, 'REFRESH_FAILED', 'Session expired.');
-      }
-    })().finally(() => {
-      refreshPromise = null;
-    });
-
-    return refreshPromise;
+        throw reason;
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
+    return refreshRequest;
   }
 
-  /* ---- (a) REQUEST: identity and traceability ---------------------------- */
+  async function bearerToken(): Promise<string> {
+    return store.getState().auth.token ?? (await signIn());
+  }
 
-  const requestId = instance.interceptors.request.use(async (config) => {
-    // Reused rather than regenerated when this config is a 401 replay, so the
-    // retry prints the same id as the attempt it is retrying.
-    const correlationId = config.meta?.correlationId ?? newCorrelationId();
-    config.meta = { correlationId, startedAt: now() };
-    config.headers.set(CORRELATION_HEADER, correlationId);
-
+  http.interceptors.request.use(async (config) => {
+    config.correlationId ??= nextCorrelationId();
+    config.headers.set('x-correlation-id', config.correlationId);
     if (!isAuthEndpoint(config.url)) {
-      config.headers.set('Authorization', `Bearer ${await ensureAccessToken()}`);
+      config.headers.set('Authorization', `Bearer ${await bearerToken()}`);
     }
-
     return config;
   });
 
-  /* ---- (b) RESPONSE (success): what happened, and how long it took -------- */
-
-  const successId = instance.interceptors.response.use((response) => {
-    const meta = response.config.meta;
-    const elapsed = meta ? Math.round(now() - meta.startedAt) : -1;
-    const method = (response.config.method ?? 'get').toUpperCase();
-    console.log(
-      `[http] ← ${method} ${response.config.url} ${response.status} ${elapsed}ms ${meta?.correlationId ?? ''}`,
-    );
-    return response;
-  });
-
-  /* ---- (c) RESPONSE (error): one error shape, and the 401 recovery -------- */
-
-  const errorId = instance.interceptors.response.use(undefined, async (error: unknown) => {
-    if (!isAxiosError(error)) {
-      throw new ApiError({
-        status: 0,
-        code: 'ERR_UNEXPECTED',
-        message: error instanceof Error ? error.message : String(error),
-        correlationId: 'req-????',
-      });
-    }
+  http.interceptors.response.use(undefined, async (error: unknown) => {
+    if (!isAxiosError(error)) throw error;
 
     const config = error.config;
-    const meta = config?.meta;
-    const elapsed = meta ? Math.round(now() - meta.startedAt) : -1;
-    const method = (config?.method ?? 'get').toUpperCase();
+    const correlationId = config?.correlationId ?? 'req-0000';
     const status = error.response?.status ?? 0;
 
-    const outcome = axios.isCancel(error) ? 'canceled' : status || 'no response';
-    console.log(
-      `[http] ✕ ${method} ${config?.url} ${outcome} ${elapsed}ms ${meta?.correlationId ?? ''}`,
-    );
-
-    const refreshable =
-      status === 401 && config !== undefined && config._retry !== true && !isAuthEndpoint(config.url);
-
-    if (refreshable) {
-      // Set before awaiting: the replay carries the flag, so if it 401s too
-      // this branch is not taken a second time and the error falls through to
-      // the normalisation below. That is the loop guard.
-      config._retry = true;
-      await refreshOnce();
-      console.log(`[http] ↻ replaying ${method} ${config.url} ${meta?.correlationId ?? ''}`);
-      return instance.request(config);
+    if (status === 401 && config && !config.retried && !isAuthEndpoint(config.url)) {
+      config.retried = true;
+      try {
+        await refreshSession();
+      } catch {
+        throw new ApiError(SESSION_ENDED);
+      }
+      return http.request(config);
     }
 
-    throw normalise(error);
+    const apiError = new ApiError(messageFor(error));
+    if (!axios.isCancel(error)) {
+      store.dispatch(requestFailed({ message: apiError.message, correlationId }));
+    }
+    throw apiError;
   });
-
-  return () => {
-    instance.interceptors.request.eject(requestId);
-    instance.interceptors.response.eject(successId);
-    instance.interceptors.response.eject(errorId);
-  };
 }
