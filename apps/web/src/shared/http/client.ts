@@ -45,7 +45,26 @@ export interface ClaimDraft {
   policyId: string;
   type: ClaimType;
   amount: number;
+  incidentDate: string;
+  claimantPhone: string;
   description: string;
+}
+
+export interface QuoteRequest {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  policyType: PolicyType;
+  sumInsured: number;
+  indicativePremium: number;
+  receivedAt: string;
+}
+
+export async function fetchQuoteRequests(signal?: AbortSignal): Promise<QuoteRequest[]> {
+  const response = await fetch('/site-api/quote-requests', { signal });
+  if (!response.ok) throw new ApiError('The public site could not be reached.');
+  return (await response.json()) as QuoteRequest[];
 }
 
 export async function fetchPolicies(query: PolicyQuery, signal?: AbortSignal): Promise<Policy[]> {

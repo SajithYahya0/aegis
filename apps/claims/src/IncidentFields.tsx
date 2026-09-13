@@ -1,9 +1,14 @@
 import { useImperativeHandle, useRef, type ReactElement, type Ref } from 'react';
 import { Controller, useFormState, type Control } from 'react-hook-form';
 import { MenuItem, Stack, TextField } from '@mui/material';
-import { CLAIM_TYPES, CLAIM_TYPE_LABEL, formatCurrency } from '../shared/domain';
-import type { Policy } from '../shared/domain';
-import { todayIso, type ClaimFormValues } from './claimSchema';
+import {
+  CLAIM_TYPES,
+  CLAIM_TYPE_LABEL,
+  formatRupees,
+  todayIso,
+  type ClaimFormValues,
+  type PolicyOption,
+} from './claimSchema';
 
 export const INCIDENT_FIELDS = [
   'policyId', 'type', 'amount', 'incidentDate', 'claimantPhone', 'description',
@@ -25,17 +30,17 @@ const PLAIN_FIELDS: readonly PlainField[] = [
   { name: 'description', label: 'What happened', type: 'text', multiline: true },
 ];
 
-export interface IncidentStepHandle {
+export interface IncidentFieldsHandle {
   focusFirstInvalid: () => void;
 }
 
-export interface IncidentStepProps {
-  ref: Ref<IncidentStepHandle>;
+export interface IncidentFieldsProps {
+  ref: Ref<IncidentFieldsHandle>;
   control: Control<ClaimFormValues>;
-  policies: readonly Policy[];
+  policies: readonly PolicyOption[];
 }
 
-export function ClaimIncidentStep({ ref, control, policies }: IncidentStepProps): ReactElement {
+export function IncidentFields({ ref, control, policies }: IncidentFieldsProps): ReactElement {
   const { errors } = useFormState({ control });
   const inputs = useRef<Partial<Record<IncidentField, HTMLElement | null>>>({});
 
@@ -66,7 +71,7 @@ export function ClaimIncidentStep({ ref, control, policies }: IncidentStepProps)
           >
             {policies.map((policy) => (
               <MenuItem key={policy.id} value={policy.id}>
-                {policy.id} · {policy.customerName} · {formatCurrency(policy.sumInsured)}
+                {policy.id} · {policy.customerName} · {formatRupees(policy.sumInsured)}
               </MenuItem>
             ))}
           </TextField>

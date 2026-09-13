@@ -1,9 +1,40 @@
 import { z } from 'zod';
-import { CLAIM_TYPES } from '../shared/domain';
 
 export const MIN_DESCRIPTION_CHARS = 20;
 
 const PHONE = /^[+\d][\d\s().-]{6,}$/;
+
+export const CLAIM_TYPES = [
+  'accident', 'theft', 'fire', 'flood', 'hospitalisation', 'liability', 'other',
+] as const;
+
+export type ClaimType = (typeof CLAIM_TYPES)[number];
+
+export const CLAIM_TYPE_LABEL: Record<ClaimType, string> = {
+  accident: 'Accident',
+  theft: 'Theft',
+  fire: 'Fire',
+  flood: 'Flood',
+  hospitalisation: 'Hospitalisation',
+  liability: 'Liability',
+  other: 'Other',
+};
+
+export interface PolicyOption {
+  id: string;
+  customerName: string;
+  sumInsured: number;
+}
+
+const rupees = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+export function formatRupees(value: number): string {
+  return rupees.format(value);
+}
 
 export function todayIso(): string {
   const now = new Date();

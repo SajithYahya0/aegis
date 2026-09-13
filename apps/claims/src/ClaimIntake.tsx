@@ -1,50 +1,46 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useRef, useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Alert, Button, Card, CardContent, Stack, Step, StepLabel, Stepper, Typography,
 } from '@mui/material';
-import { fetchPolicies } from '../shared/http/client';
-import { useAppDispatch } from '../shared/store';
-import { submitClaimThunk } from '../shared/store/claimsSlice';
-import { CLAIM_TYPE_LABEL, formatCurrency } from '../shared/domain';
-import type { Policy } from '../shared/domain';
-import { ClaimIncidentStep, INCIDENT_FIELDS, type IncidentStepHandle } from './ClaimIncidentStep';
-import { EMPTY_CLAIM, claimSchema, type ClaimFormValues } from './claimSchema';
+import { IncidentFields, INCIDENT_FIELDS, type IncidentFieldsHandle } from './IncidentFields';
+import {
+  CLAIM_TYPE_LABEL, EMPTY_CLAIM, claimSchema, formatRupees,
+  type ClaimFormValues, type PolicyOption,
+} from './claimSchema';
 
-export default function ClaimIntakePage(): ReactElement {
-  const dispatch = useAppDispatch();
-  const [searchParams] = useSearchParams();
-  const [policies, setPolicies] = useState<readonly Policy[]>([]);
+export interface ClaimIntakeProps {
+  policies: readonly PolicyOption[];
+  initialPolicyId?: string;
+  onFile: (draft: ClaimFormValues) => Promise<{ id: string }>;
+}
+
+export default function ClaimIntake({
+  policies,
+  initialPolicyId = '',
+  onFile,
+}: ClaimIntakeProps): ReactElement {
   const [onReview, setOnReview] = useState(false);
   const [filedId, setFiledId] = useState<string | null>(null);
-  const stepRef = useRef<IncidentStepHandle>(null);
+  const fieldsRef = useRef<IncidentFieldsHandle>(null);
 
   const { control, handleSubmit, trigger, getValues, setError, reset, formState } =
     useForm<ClaimFormValues>({
       resolver: zodResolver(claimSchema),
       mode: 'onBlur',
-      defaultValues: { ...EMPTY_CLAIM, policyId: searchParams.get('policy') ?? '' },
+      defaultValues: { ...EMPTY_CLAIM, policyId: initialPolicyId },
     });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPolicies({ q: '', status: '', type: '', expiring: false }, controller.signal)
-      .then(setPolicies)
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, []);
 
   async function goToReview(): Promise<void> {
     if (await trigger(INCIDENT_FIELDS.slice())) setOnReview(true);
-    else stepRef.current?.focusFirstInvalid();
+    else fieldsRef.current?.focusFirstInvalid();
   }
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const claim = await dispatch(submitClaimThunk(values)).unwrap();
-      setFiledId(claim.id);
+      const filed = await onFile(values);
+      setFiledId(filed.id);
       setOnReview(false);
       reset(EMPTY_CLAIM as ClaimFormValues);
     } catch (thrown) {
@@ -59,7 +55,6 @@ export default function ClaimIntakePage(): ReactElement {
 
   return (
     <Stack component="form" onSubmit={onSubmit} noValidate spacing={2}>
-      <Typography variant="h1">New claim</Typography>
       <Stepper activeStep={onReview ? 1 : 0}>
         <Step><StepLabel>Incident</StepLabel></Step>
         <Step><StepLabel>Review</StepLabel></Step>
@@ -76,7 +71,7 @@ export default function ClaimIntakePage(): ReactElement {
             <Stack spacing={1}>
               <Typography variant="body1">
                 {values.policyId} · {CLAIM_TYPE_LABEL[values.type]} ·{' '}
-                {formatCurrency(values.amount)}
+                {formatRupees(values.amount)}
               </Typography>
               <Typography variant="body2">
                 {values.incidentDate} · {values.claimantPhone}
@@ -84,7 +79,7 @@ export default function ClaimIntakePage(): ReactElement {
               <Typography variant="body2">{values.description}</Typography>
             </Stack>
           ) : (
-            <ClaimIncidentStep ref={stepRef} control={control} policies={policies} />
+            <IncidentFields ref={fieldsRef} control={control} policies={policies} />
           )}
         </CardContent>
       </Card>

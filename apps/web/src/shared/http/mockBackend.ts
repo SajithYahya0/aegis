@@ -2,7 +2,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { UNDERWRITING_LIMITS, claims as seedClaims, policies } from '../data';
 import { daysUntil } from '../domain';
-import type { Claim } from '../domain';
+import type { Claim, Policy } from '../domain';
 import { body, delay, installSession, type Reply } from './mockSession';
 
 const EXPIRING_WINDOW_DAYS = 30;
@@ -15,7 +15,7 @@ function idFrom(config: AxiosRequestConfig, pattern: RegExp): string {
   return pattern.exec(config.url ?? '')?.[1] ?? '';
 }
 
-function policyById(id: string) {
+function policyById(id: string): Policy | undefined {
   return policies.find((candidate) => candidate.id === id);
 }
 

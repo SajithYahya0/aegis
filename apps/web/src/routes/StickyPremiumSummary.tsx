@@ -14,9 +14,14 @@ export function StickyPremiumSummary({ premium }: { premium: number }): ReactEle
   }
 
   useLayoutEffect(() => {
-    const measured = barRef.current?.getBoundingClientRect().height ?? 0;
-    setBarHeight((current) => (current === measured ? current : measured));
-  });
+    const bar = barRef.current;
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      setBarHeight(bar.getBoundingClientRect().height);
+    });
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
 
   const movement =
     previousPremium === null || previousPremium === premium

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, type RenderResult } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { http } from '../shared/http/client';
@@ -11,7 +11,7 @@ import PoliciesPage from './PoliciesPage';
 installMockBackend(http);
 installInterceptors(store);
 
-function renderAt(url: string) {
+function renderAt(url: string): RenderResult {
   return render(
     <Provider store={store}>
       <MemoryRouter initialEntries={[url]}>

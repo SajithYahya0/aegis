@@ -18,7 +18,7 @@ const PolicyClaimsTab = lazy(() =>
   import('./routes/PolicyTabs').then((module) => ({ default: module.PolicyClaimsTab })),
 );
 const QuoteWizardPage = lazy(() => import('./routes/QuoteWizardPage'));
-const ClaimIntakePage = lazy(() => import('./routes/ClaimIntakePage'));
+const ClaimIntakeRoute = lazy(() => import('./routes/ClaimIntakeRoute'));
 const UnderwritingPage = lazy(() => import('./routes/UnderwritingPage'));
 
 function RequireRole({ role, children }: { role: Role; children: ReactNode }): ReactElement {
@@ -57,7 +57,7 @@ export default function App(): ReactElement {
               <Route path="claims" element={<PolicyClaimsTab />} />
             </Route>
             <Route path="/quote" element={<QuoteWizardPage />} />
-            <Route path="/claims/new" element={<ClaimIntakePage />} />
+            <Route path="/claims/new" element={<ClaimIntakeRoute />} />
             <Route
               path="/underwriting"
               element={

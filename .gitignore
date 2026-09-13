@@ -3,5 +3,9 @@ dist
 dist-ssr
 *.local
 .vite
+.next
+next-env.d.ts
+.vercel
 coverage
 .DS_Store
+*.tsbuildinfo

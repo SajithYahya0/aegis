@@ -13,9 +13,7 @@ const VALID_CLAIM = {
 function messagesFor(claim: Record<string, unknown>): Record<string, string> {
   const result = claimSchema.safeParse(claim);
   if (result.success) return {};
-  return Object.fromEntries(
-    result.error.issues.map((issue) => [String(issue.path[0]), issue.message]),
-  );
+  return Object.fromEntries(result.error.issues.map((i) => [String(i.path[0]), i.message]));
 }
 
 describe('claimSchema', () => {
@@ -27,12 +25,8 @@ describe('claimSchema', () => {
   it('refuses a loss the insurer could not act on', () => {
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     const messages = messagesFor({
-      ...VALID_CLAIM,
-      policyId: '',
-      amount: 0,
-      incidentDate: tomorrow,
-      claimantPhone: 'call me',
-      description: 'Bumped it.',
+      ...VALID_CLAIM, policyId: '', amount: 0, incidentDate: tomorrow,
+      claimantPhone: 'call me', description: 'Bumped it.',
     });
 
     expect(messages.policyId).toMatch(/Select the policy/);

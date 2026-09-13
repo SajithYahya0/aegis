@@ -62,5 +62,5 @@ describe('axios interceptors', () => {
 
     expect(store.getState().auth.token).toBeNull();
     expect(store.getState().auth.status).toBe('idle');
-  }, 20_000);
+  });
 });

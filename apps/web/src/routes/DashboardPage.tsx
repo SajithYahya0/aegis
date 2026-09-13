@@ -4,7 +4,8 @@ import {
   Alert, Card, CardContent, LinearProgress, Link, Stack, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
-import { fetchClaims, fetchPolicies } from '../shared/http/client';
+import { fetchClaims, fetchPolicies, fetchQuoteRequests } from '../shared/http/client';
+import type { QuoteRequest } from '../shared/http/client';
 import { useAppSelector } from '../shared/store';
 import {
   POLICY_TYPE_LABEL, daysUntil, formatCompactCurrency, formatCurrency, formatDate,
@@ -48,6 +49,7 @@ export default function DashboardPage(): ReactElement {
   const filedThisSession = useAppSelector((store) => store.claims.submitted);
   const [policies, setPolicies] = useState<readonly Policy[]>([]);
   const [claims, setClaims] = useState<readonly Claim[]>([]);
+  const [enquiries, setEnquiries] = useState<readonly QuoteRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function DashboardPage(): ReactElement {
       .catch(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
+    fetchQuoteRequests(controller.signal).then(setEnquiries).catch(() => undefined);
     return () => controller.abort();
   }, []);
 
@@ -111,6 +114,21 @@ export default function DashboardPage(): ReactElement {
           note="renewal calls due"
         />
       </Stack>
+      {enquiries.length > 0 ? (
+        <Card>
+          <CardContent>
+            <Typography variant="h2" sx={{ mb: 1 }}>Quote requests from the website</Typography>
+            {enquiries.map((enquiry) => (
+              <Typography key={enquiry.id} variant="body2">
+                {enquiry.name} · {enquiry.city} · {POLICY_TYPE_LABEL[enquiry.policyType]} ·{' '}
+                {formatCurrency(enquiry.sumInsured)} quoted at{' '}
+                {formatCurrency(enquiry.indicativePremium)} ·{' '}
+                <Link href={`tel:${enquiry.phone}`}>{enquiry.phone}</Link>
+              </Typography>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
       {filedThisSession.length > 0 ? (
         <Card>
           <CardContent>

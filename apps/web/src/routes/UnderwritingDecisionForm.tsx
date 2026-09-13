@@ -17,22 +17,28 @@ const DECISION_LABEL: Record<(typeof DECISION_OUTCOMES)[number], string> = {
 
 const MIN_NOTE_CHARS = 20;
 
-function makeDecisionSchema(maxLoadingPct: number) {
-  return z.object({
-    policyId: z.string().min(1, 'Pick a policy from the referral queue.'),
-    outcome: z.enum(DECISION_OUTCOMES),
-    loadingPct: z
-      .number({ error: 'Enter a rate loading, or 0 for none.' })
-      .min(0, 'A rate loading cannot be negative.')
-      .max(maxLoadingPct, `${maxLoadingPct}% is the most you may load on your own authority.`),
-    note: z
-      .string()
-      .trim()
-      .min(MIN_NOTE_CHARS, `Record the reasoning in at least ${MIN_NOTE_CHARS} characters.`),
+const DECISION_FIELDS = z.object({
+  policyId: z.string().min(1, 'Pick a policy from the referral queue.'),
+  outcome: z.enum(DECISION_OUTCOMES),
+  loadingPct: z
+    .number({ error: 'Enter a rate loading, or 0 for none.' })
+    .min(0, 'A rate loading cannot be negative.'),
+  note: z
+    .string()
+    .trim()
+    .min(MIN_NOTE_CHARS, `Record the reasoning in at least ${MIN_NOTE_CHARS} characters.`),
+});
+
+type DecisionValues = z.infer<typeof DECISION_FIELDS>;
+
+function makeDecisionSchema(maxLoadingPct: number): z.ZodType<DecisionValues, DecisionValues> {
+  return DECISION_FIELDS.extend({
+    loadingPct: DECISION_FIELDS.shape.loadingPct.max(
+      maxLoadingPct,
+      `${maxLoadingPct}% is the most you may load on your own authority.`,
+    ),
   });
 }
-
-type DecisionValues = z.infer<ReturnType<typeof makeDecisionSchema>>;
 
 const BLANK: DecisionValues = { policyId: '', outcome: 'refer', loadingPct: 0, note: '' };
 
