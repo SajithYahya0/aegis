@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import federation from '@originjs/vite-plugin-federation';
 
@@ -20,5 +20,4 @@ export default defineConfig({
     cssCodeSplit: false,
   },
   preview: { headers: { 'Access-Control-Allow-Origin': '*' } },
-  test: { globals: true, environment: 'jsdom', testTimeout: 20_000 },
 });

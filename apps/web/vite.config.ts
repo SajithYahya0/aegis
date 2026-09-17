@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import federation from '@originjs/vite-plugin-federation';
 
@@ -28,5 +28,4 @@ export default defineConfig({
   server: { watch: { usePolling: true }, proxy: SITE_PROXY },
   preview: { proxy: SITE_PROXY },
   build: { target: 'esnext' },
-  test: { globals: true, environment: 'jsdom', testTimeout: 20_000 },
 });

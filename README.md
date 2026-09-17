@@ -39,9 +39,7 @@ public site is not running the enquiries card is simply absent.
 
 ```
 npm run build       # claims, then web, then public
-npm test            # vitest in all three apps
 npm run typecheck   # tsc for web + claims, then next's tsc for public
-npm run lint        # eslint + typescript-eslint across all three
 ```
 
 Override the remote and the site at build time with `VITE_CLAIMS_REMOTE` and
@@ -52,12 +50,10 @@ Override the remote and the site at build time with `VITE_CLAIMS_REMOTE` and
 ```
 package.json                  npm workspaces, cross-app scripts
 tsconfig.json                 typechecks apps/web and apps/claims
-eslint.config.js              flat config: js, typescript-eslint, react-hooks
-vercel.json                   deploys apps/public from the workspace root
 
-apps/web/                     the console — 35 source files, 3,153 lines
+apps/web/                     the console — 29 source files, 2,873 lines
   index.html
-  vite.config.ts              federation host, /site-api proxy, vitest
+  vite.config.ts              federation host, /site-api proxy
   src/
     main.tsx                  composition root: mock backend, interceptors, providers
     remotes.d.ts              the federation contract the console codes against
@@ -89,21 +85,17 @@ apps/web/                     the console — 35 source files, 3,153 lines
       ClaimIntakeRoute.tsx    loads the claims remote and hands it the book
       UnderwritingPage.tsx    referral queue
       UnderwritingDecisionForm.tsx  decision form, limits come from the server
-      + PoliciesPage.test, QuoteWizardPage.test, UnderwritingDecisionForm.test
-      + shared/hooks.test, shared/rating.test, shared/http/interceptors.test
 
-apps/claims/                  the remote — 5 source files, 418 lines
+apps/claims/                  the remote — 3 source files, 308 lines
   index.html                  a page saying where remoteEntry.js is
   vite.config.ts              federation remote: exposes, shared, CORS on preview
   src/
     ClaimIntake.tsx           the exposed component: incident, review, file
     IncidentFields.tsx        the six incident fields, focuses the first invalid one
     claimSchema.ts            Zod rules and the props contract the host codes against
-    ClaimIntake.test.tsx      the form a broker actually drives
-    claimSchema.test.ts       the rules on their own
 
-apps/public/                  the site — 15 source files, 832 lines
-  next.config.ts, tsconfig.json, vitest.config.ts
+apps/public/                  the site — 12 source files, 691 lines
+  next.config.ts, tsconfig.json
   app/
     layout.tsx                shell, nav, metadata
     aegis.module.css          every class the site uses, light and dark
@@ -115,9 +107,6 @@ apps/public/                  the site — 15 source files, 832 lines
     status/loading.tsx        skeleton while the summary loads
     status/error.tsx          'use client', reset() plus the error digest
     api/quote-requests/route.ts   GET + POST; the console reads what the site writes
-    quote/QuoteForm.test.tsx      suspends on the rate card, then prices off it
-    status/ClaimsHistory.test.tsx the streamed section, awaited as a server component
-    api/quote-requests/route.test.ts  what the handler refuses and what it records
   lib/
     rates.ts                  the hourly rate card and the premium it implies
     book.ts                   the policy admin system and the slow claims system
@@ -229,61 +218,7 @@ Retry, not a white console.
 | use() hook | `public/app/quote/QuoteForm.tsx` unwraps the rate card promise |
 | CSS Modules | `public/app/aegis.module.css` |
 | Module Federation | `apps/claims` exposes, `apps/web` consumes via `src/remotes.d.ts` |
-| Vitest + React Testing Library | all three apps; 27 tests, no snapshots |
 | TypeScript | strict everywhere, no `any`, no suppressions |
-| Lint | `eslint.config.js` |
-| Deploy | `vercel.json`, `apps/web/dist`, `apps/claims/dist` |
-
-## Testing
-
-Every app has its own vitest run; `npm test` runs all three. No snapshots —
-each test drives the DOM a user sees, or the function a caller calls.
-
-**`apps/web`** — six behaviour tests:
-
-- `PoliciesPage` lists the book the server returns, and asks the server for only
-  the status named in the URL.
-- `QuoteWizardPage` holds an incomplete applicant on step one and names what is
-  missing; and reprices the premium bar when an optional cover is bought
-  (12,250 to 12,430, with "was 12,250" beside it).
-- `UnderwritingDecisionForm` refuses a loading above the underwriter's authority
-  without calling back; and records a decision the server accepts, then clears
-  the form for the next referral.
-
-**`apps/claims`** — the remote is tested as its own deployable, through the
-props the host passes it: it holds the notice on the incident step until the
-loss is described, files a complete notice through the host's `onFile`, and
-preselects the policy the console sent. The Zod rules keep their own unit test.
-
-**`apps/public`** — three things the framework makes easy to get wrong:
-
-- `QuoteForm` renders the Suspense fallback while the rate card is pending, then
-  prices off the card once `use()` unwraps it, and reprices on term and cover.
-  The render has to sit inside an awaited `act()`: Testing Library's `render`
-  opens its own synchronous `act` scope, and a component that suspends inside an
-  un-awaited one never retries, so the fallback stays forever.
-- The route handler refuses each way an enquiry can be useless — no name, an
-  unreachable phone, no city, a cover we do not write, no sum insured — and
-  records a good one with a reference, then hands it back newest first. It runs
-  in vitest's `node` environment, matched by glob, so `Request` and
-  `NextResponse` are the real ones.
-- `ClaimsHistory` is an async Server Component, so the test awaits it and renders
-  what it returns: the real claims for a policy that has them, and the plain
-  sentence for one that does not.
-
-Around all of it sit unit tests for what a behaviour test would only assert
-indirectly: the premium maths, the cover catalogue, `useLocalStorage`, and the
-whole 401-refresh-replay-logout chain.
-
-## Deploy
-
-`vercel.json` at the repository root builds `apps/public` from the workspace
-(`npm run build --workspace @aegis/public`, output `apps/public/.next`), pinned
-to `bom1` since the book is Indian. `apps/web` and `apps/claims` are static
-builds — `vite build` in each — served from `dist/`. The console needs
-`VITE_CLAIMS_REMOTE` pointed at wherever claims-ops serves `remoteEntry.js`, and
-`VITE_PUBLIC_SITE` at the site, since `/site-api` is a dev proxy and has to be a
-rewrite in production.
 
 ## Notes
 

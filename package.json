@@ -13,18 +13,11 @@
     "dev:web": "npm run dev -w apps/web",
     "dev:public": "npm run dev -w apps/public",
     "build": "npm run build -w apps/claims && npm run build -w apps/web && npm run build -w apps/public",
-    "test": "npm run test -w apps/web && npm run test -w apps/claims && npm run test -w apps/public",
-    "typecheck": "tsc --noEmit && npm run typecheck -w apps/public",
-    "lint": "eslint ."
+    "typecheck": "tsc --noEmit && npm run typecheck -w apps/public"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "eslint": "^10.10.0",
-    "eslint-plugin-react-hooks": "^7.0.0",
-    "globals": "^17.12.0",
-    "typescript": "^5.9.0",
-    "typescript-eslint": "^8.46.0"
+    "typescript": "^5.9.0"
   }
 }

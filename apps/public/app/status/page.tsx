@@ -46,7 +46,6 @@ export default async function StatusPage({ searchParams }: StatusPageProps): Pro
   if (!policy) {
     throw new Error(`No policy matching ${ref.toUpperCase()} was issued in that name.`);
   }
-
   return (
     <main>
       <h1>{policy.ref}</h1>

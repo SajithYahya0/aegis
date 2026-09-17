@@ -13,8 +13,11 @@ const PITCH: Record<string, string> = {
 };
 
 export default function HomePage(): ReactElement {
+  
   return (
+    
     <main>
+      
       <h1>Cover that settles when it matters.</h1>
       <p className={styles.lead}>
         AEGIS writes motor, health, property and life cover across India. Rates are filed with
