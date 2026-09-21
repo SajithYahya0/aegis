@@ -1,9 +1,8 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type Dispatch,
   type ReactElement,
   type ReactNode,
@@ -23,6 +22,12 @@ export const NEXT_THEME_CHOICE: Record<ThemeChoice, ThemeChoice> = {
 
 const THEME_KEY = 'aegis.theme';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
+function subscribeDark(onChange:()=>void):() => void {
+  const query = window.matchMedia(DARK_QUERY);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+const readDark = (): boolean => window.matchMedia(DARK_QUERY).matches;
 const FONT_SANS =
   "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
@@ -79,16 +84,7 @@ export function useThemeChoice(): ThemeChoiceValue {
 
 export function ThemeModeProvider({ children }: { children: ReactNode }): ReactElement {
   const [choice, setChoice] = useLocalStorage<ThemeChoice>(THEME_KEY, 'system');
-  const [systemDark, setSystemDark] = useState(() => window.matchMedia(DARK_QUERY).matches);
-
-  useEffect(() => {
-    if (choice !== 'system') return;
-    const query = window.matchMedia(DARK_QUERY);
-    setSystemDark(query.matches);
-    const onChange = (event: MediaQueryListEvent): void => setSystemDark(event.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, [choice]);
+  const systemDark = useSyncExternalStore(subscribeDark,readDark);
 
   const mode = choice === 'system' ? (systemDark ? 'dark' : 'light') : choice;
   const theme = useMemo(() => createAegisTheme(mode), [mode]);

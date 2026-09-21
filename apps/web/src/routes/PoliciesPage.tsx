@@ -34,8 +34,12 @@ export default function PoliciesPage(): ReactElement {
 
   const [query, setQuery] = useState(searchParams.get('q') ?? '');
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
-  const [rows, setRows] = useState<readonly Policy[]>([]);
-  const [loading, setLoading] = useState(true);
+  // const [rows, setRows] = useState<readonly Policy[]>([]);
+  // const [loading, setLoading] = useState(true);
+  const queryKey = `${debouncedQuery}|${status}|${type}|${expiring}`;
+  const [result, setResult] = useState<{key: string; rows: readonly Policy[]}>({key:'', rows: []});
+  const rows = result.rows;
+  const loading = result.key !== queryKey;
   const [recent, setRecent] = useLocalStorage<RecentPolicy[]>('aegis.recent-policies', []);
 
   const setParam = useCallback(
@@ -57,17 +61,15 @@ export default function PoliciesPage(): ReactElement {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
     fetchPolicies({ q: debouncedQuery, status, type, expiring }, controller.signal)
       .then((policies) => {
-        setRows(policies);
-        setLoading(false);
+        setResult({key: queryKey, rows: policies});
       })
       .catch(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) setResult((p)=>({key:queryKey,rows: p.rows}));
       });
     return () => controller.abort();
-  }, [debouncedQuery, status, type, expiring]);
+  }, [queryKey,debouncedQuery, status, type, expiring]);
 
   function compare(a: Policy, b: Policy): number {
     if (sortKey === 'endDate') {

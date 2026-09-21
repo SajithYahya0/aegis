@@ -33,7 +33,8 @@ export default function ClaimIntake({
     });
 
   async function goToReview(): Promise<void> {
-    if (await trigger(INCIDENT_FIELDS.slice())) setOnReview(true);
+    if (await trigger(INCIDENT_FIELDS.slice())) 
+      setOnReview(true);
     else fieldsRef.current?.focusFirstInvalid();
   }
 

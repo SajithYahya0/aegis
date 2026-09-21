@@ -33,8 +33,6 @@ export default function PolicyDetailPage(): ReactElement {
 
   useEffect(() => {
     const controller = new AbortController();
-    setDetail(null);
-    setFailure(null);
     fetchPolicyDetail(id, controller.signal)
       .then(setDetail)
       .catch((reason: unknown) => {

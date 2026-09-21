@@ -69,7 +69,7 @@ export function annualPremium(input: PremiumInput): number {
   const withCovers = withClaims * (1 + input.optionalCovers * LOADING_PER_OPTIONAL_COVER);
   const termAdjusted =
     input.termMonths >= LONG_TERM_MONTHS ? withCovers * (1 - LONG_TERM_DISCOUNT) : withCovers;
-  return Math.round(termAdjusted / 10) * 10;
+  return Math.round(termAdjusted/10) * 10; 
 }
 
 export function coveragesFor(
