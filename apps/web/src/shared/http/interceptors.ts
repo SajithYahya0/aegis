@@ -1,7 +1,7 @@
 import axios, { isAxiosError, type AxiosError } from 'axios';
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { ApiError, http } from './client';
-import { SESSION_ENDED, loginThunk, logout, refreshThunk } from '../store/authSlice';
+import { SESSION_ENDED, logout, refreshThunk } from '../store/authSlice';
 import type { AppStore } from '../store';
 
 declare module 'axios' {
@@ -57,19 +57,7 @@ function messageFor(error: AxiosError): string {
 }
 
 export function installInterceptors(store: AppStore): void {
-  let sessionRequest: Promise<string> | null = null;
   let refreshRequest: Promise<string> | null = null;
-
-  function signIn(): Promise<string> {
-    sessionRequest ??= store
-      .dispatch(loginThunk())
-      .unwrap()
-      .then((pair) => pair.accessToken)
-      .finally(() => {
-        sessionRequest = null;
-      });
-    return sessionRequest;
-  }
 
   function refreshSession(): Promise<string> {
     refreshRequest ??= store
@@ -86,15 +74,12 @@ export function installInterceptors(store: AppStore): void {
     return refreshRequest;
   }
 
-  async function bearerToken(): Promise<string> {
-    return store.getState().auth.token ?? (await signIn());
-  }
-
-  http.interceptors.request.use(async (config) => {
+  http.interceptors.request.use((config) => {
     config.correlationId ??= nextCorrelationId();
     config.headers.set('x-correlation-id', config.correlationId);
-    if (!isAuthEndpoint(config.url)) {
-      config.headers.set('Authorization', `Bearer ${await bearerToken()}`);
+    const token = store.getState().auth.token;
+    if (token && !isAuthEndpoint(config.url)) {
+      config.headers.set('Authorization', `Bearer ${token}`);
     }
     return config;
   });

@@ -2,7 +2,7 @@ import { useState, type ReactElement, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Alert, AppBar, Box, Divider, Drawer, IconButton, List, ListItem, ListItemButton,
-  ListItemText, MenuItem, Snackbar, TextField, Toolbar, Typography, useMediaQuery,
+  ListItemText, Button, Snackbar, Toolbar, Typography, useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -11,9 +11,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 import { dismissHttpError } from './http/interceptors';
 import { useAppDispatch, useAppSelector } from './store';
-import { switchRole } from './store/authSlice';
+import { logout } from './store/authSlice';
 import { NEXT_THEME_CHOICE, useThemeChoice, type ThemeChoice } from './ThemeModeProvider';
-import type { Role } from './domain';
 
 const NAV_WIDTH = 220;
 
@@ -24,8 +23,6 @@ const NAV_ITEMS: readonly { to: string; label: string; end?: boolean }[] = [
   { to: '/claims/new', label: 'New claim' },
   { to: '/underwriting', label: 'Underwriting' },
 ];
-
-const ROLE_LABEL: Record<Role, string> = { agent: 'Agent', underwriter: 'Underwriter' };
 
 const DRAWER_SX = {
   width: { md: NAV_WIDTH },
@@ -60,7 +57,6 @@ const THEME_ICON: Record<ThemeChoice, ReactElement> = {
 export function AppShell({ children }: { children: ReactNode }): ReactElement {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
-  const role = useAppSelector((state) => state.auth.role);
   const httpError = useAppSelector((state) => state.httpError);
   const { choice, setChoice } = useThemeChoice();
   const [navOpen, setNavOpen] = useState(false);
@@ -84,22 +80,14 @@ export function AppShell({ children }: { children: ReactNode }): ReactElement {
             <MenuIcon fontSize="small" />
           </IconButton>
           <Box sx={{ flex: 1 }} />
-          <Typography variant="body2" sx={USER_SX}>
-            {user.name} · {user.branch}
-          </Typography>
-          <TextField
-            select
-            label="Viewing as"
-            value={role}
-            onChange={(event) => dispatch(switchRole(event.target.value as Role))}
-            sx={{ minWidth: 132 }}
-          >
-            {(Object.keys(ROLE_LABEL) as Role[]).map((value) => (
-              <MenuItem key={value} value={value}>
-                {ROLE_LABEL[value]}
-              </MenuItem>
-            ))}
-          </TextField>
+          {user && (
+            <Typography variant="body2" sx={USER_SX}>
+              {user.name} · {user.branch}
+            </Typography>
+          )}
+          <Button size="small" onClick={() => dispatch(logout())}>
+            Sign out
+          </Button>
           <IconButton
             edge="end"
             aria-label={`Theme: ${choice}. Switch to ${NEXT_THEME_CHOICE[choice]}.`}

@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import type MockAdapter from 'axios-mock-adapter';
+import type { User } from '../domain';
 
 const ACCESS_TOKEN_TTL_MS = 60_000;
 const MAX_REFRESHES_PER_SESSION = 3;
@@ -7,6 +8,16 @@ const MIN_LATENCY_MS = 180;
 const MAX_LATENCY_MS = 420;
 
 export type Reply = [number, unknown];
+
+interface Account {
+  password: string;
+  user: User;
+}
+
+const ACCOUNTS = new Map<string, Account>([
+  ['priya', { password: 'agent123', user: { id: 'usr-agent-01', name: 'Priya Nair', role: 'agent', branch: 'Chennai' } }],
+  ['arvind', { password: 'underwriter123', user: { id: 'usr-uw-01', name: 'Arvind Rao', role: 'underwriter', branch: 'Mumbai' } }],
+]);
 
 interface TokenPair {
   accessToken: string;
@@ -57,7 +68,12 @@ export function installSession(mock: MockAdapter): (config: AxiosRequestConfig) 
 
   mock.onPost('/auth/login').reply(async (config) => {
     await delay(config);
-    return [200, issueTokens(String(body(config).role ?? 'agent'), 0)];
+    const { username, password } = body(config);
+    const account = ACCOUNTS.get(String(username ?? '').trim().toLowerCase());
+    if (!account || account.password !== password) {
+      return [401, { message: 'Incorrect username or password.' }];
+    }
+    return [200, { ...issueTokens(account.user.role, 0), user: account.user }];
   });
 
   mock.onPost('/auth/refresh').reply(async (config) => {
