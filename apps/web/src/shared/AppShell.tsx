@@ -62,6 +62,10 @@ export function AppShell({ children }: { children: ReactNode }): ReactElement {
   const [navOpen, setNavOpen] = useState(false);
   const isDesktop = useMediaQuery(useTheme().breakpoints.up('md'));
 
+  const navItems = NAV_ITEMS.filter(
+    (item) => item.to !== '/underwriting' || user?.role === 'underwriter',
+  );
+
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
       <AppBar
@@ -109,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }): ReactElement {
         </Toolbar>
         <Divider />
         <List sx={{ px: 1, py: 1 }}>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <ListItem key={item.to} disablePadding sx={{ mb: 0.25 }}>
               <ListItemButton
                 component={NavLink}
