@@ -20,9 +20,20 @@ const PolicyClaimsTab = lazy(() =>
 const QuoteWizardPage = lazy(() => import('./routes/QuoteWizardPage'));
 const ClaimIntakeRoute = lazy(() => import('./routes/ClaimIntakeRoute'));
 const UnderwritingPage = lazy(() => import('./routes/UnderwritingPage'));
+const LoginPage = lazy(() => import('./routes/LoginPage'));
+
+function RequireAuth({ children }: { children: ReactNode }): ReactElement {
+  const user = useAppSelector((state) => state.auth.user);
+  const location = useLocation();
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+  return <>{children}</>;
+}
 
 function RequireRole({ role, children }: { role: Role; children: ReactNode }): ReactElement {
-  const currentRole = useAppSelector((state) => state.auth.role);
+  const currentRole = useAppSelector((state) => state.auth.user?.role);
   const location = useLocation();
 
   if (currentRole !== role) {
@@ -43,6 +54,29 @@ function NotFoundPage(): ReactElement {
 }
 
 export default function App(): ReactElement {
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<LinearProgress aria-label="Loading" />}>
+            <LoginPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/*"
+        element={
+          <RequireAuth>
+            <SignedInApp />
+          </RequireAuth>
+        }
+      />
+    </Routes>
+  );
+}
+
+function SignedInApp(): ReactElement {
   const location = useLocation();
 
   return (
