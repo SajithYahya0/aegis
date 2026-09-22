@@ -34,7 +34,7 @@ export default function LoginPage(): ReactElement {
           Sign in
         </Button>
         <Typography variant="body2" color="text.secondary">
-          Demo: priya / agent123 · arvind / underwriter123
+          Demo: parmes / agent123 · arvind / underwriter123
         </Typography>
       </Paper>
     </Box>

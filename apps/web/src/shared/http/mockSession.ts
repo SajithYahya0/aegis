@@ -15,7 +15,7 @@ interface Account {
 }
 
 const ACCOUNTS = new Map<string, Account>([
-  ['priya', { password: 'agent123', user: { id: 'usr-agent-01', name: 'Parmes', role: 'agent', branch: 'Chennai' } }],
+  ['parmes', { password: 'agent123', user: { id: 'usr-agent-01', name: 'Parmes', role: 'agent', branch: 'Chennai' } }],
   ['arvind', { password: 'underwriter123', user: { id: 'usr-uw-01', name: 'Arvind Rao', role: 'underwriter', branch: 'Mumbai' } }],
 ]);
 
