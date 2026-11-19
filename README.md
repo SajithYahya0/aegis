@@ -1,5 +1,7 @@
 # AEGIS
 
+**Live:** [public site](https://aegis-public-rho.vercel.app) · [console](https://aegis-web-flax.vercel.app) (demo login on the sign-in page)
+
 An insurance book, split across three deployables that each want a different
 rendering strategy and a different release cadence.
 
